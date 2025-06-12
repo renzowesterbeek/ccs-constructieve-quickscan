@@ -1,0 +1,51 @@
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+  
+  <!-- Title -->
+  <text x="200" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#212529">Schade Documentatie Voorbeeld</text>
+  
+  <!-- Wall -->
+  <rect x="50" y="50" width="300" height="150" fill="#e9ecef" stroke="#495057" stroke-width="2"/>
+  
+  <!-- Crack pattern -->
+  <path d="M 120 60 Q 150 100 180 140 Q 210 180 240 160 Q 270 140 300 180" 
+        fill="none" stroke="#dc3545" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Small secondary cracks -->
+  <line x1="160" y1="80" x2="170" y2="120" stroke="#dc3545" stroke-width="2"/>
+  <line x1="220" y1="90" x2="230" y2="110" stroke="#dc3545" stroke-width="2"/>
+  <line x1="260" y1="70" x2="270" y2="100" stroke="#dc3545" stroke-width="2"/>
+  
+  <!-- Scale reference (coin) -->
+  <circle cx="140" cy="170" r="12" fill="#ffc107" stroke="#000" stroke-width="1"/>
+  <text x="140" y="175" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#000">€2</text>
+  
+  <!-- Measurement annotations -->
+  <line x1="120" y1="220" x2="300" y2="220" stroke="#007bff" stroke-width="1"/>
+  <text x="210" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#007bff">180 cm scheurlengte</text>
+  
+  <!-- Crack width indicator -->
+  <rect x="175" y="135" width="10" height="3" fill="#dc3545"/>
+  <text x="190" y="145" font-family="Arial, sans-serif" font-size="8" fill="#dc3545">~3mm breed</text>
+  
+  <!-- Photo info -->
+  <rect x="50" y="250" width="300" height="40" fill="white" stroke="#000" stroke-width="1"/>
+  <text x="60" y="265" font-family="Arial, sans-serif" font-size="10" fill="#000">Foto: Scheur in dragende wand</text>
+  <text x="60" y="275" font-family="Arial, sans-serif" font-size="9" fill="#666">Locatie: Begane grond, as B tussen 2-3</text>
+  <text x="60" y="285" font-family="Arial, sans-serif" font-size="9" fill="#666">Datum: 15-06-2024, Fotograaf: J. de Vries</text>
+  
+  <!-- North arrow -->
+  <g transform="translate(360, 80)">
+    <line x1="0" y1="20" x2="0" y2="0" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <text x="5" y="15" font-family="Arial, sans-serif" font-size="10" fill="#000">N</text>
+  </g>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+            refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#000"/>
+    </marker>
+  </defs>
+</svg> 

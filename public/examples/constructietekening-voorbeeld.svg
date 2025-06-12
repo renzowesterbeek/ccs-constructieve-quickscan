@@ -1,0 +1,39 @@
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+  
+  <!-- Title -->
+  <text x="200" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#212529">Constructietekening Voorbeeld</text>
+  
+  <!-- Building outline -->
+  <rect x="50" y="50" width="300" height="200" fill="none" stroke="#495057" stroke-width="2"/>
+  
+  <!-- Columns -->
+  <rect x="80" y="60" width="20" height="180" fill="#6c757d"/>
+  <rect x="140" y="60" width="20" height="180" fill="#6c757d"/>
+  <rect x="200" y="60" width="20" height="180" fill="#6c757d"/>
+  <rect x="260" y="60" width="20" height="180" fill="#6c757d"/>
+  <rect x="320" y="60" width="20" height="180" fill="#6c757d"/>
+  
+  <!-- Beams -->
+  <rect x="50" y="120" width="300" height="15" fill="#868e96"/>
+  <rect x="50" y="180" width="300" height="15" fill="#868e96"/>
+  
+  <!-- Foundation -->
+  <rect x="40" y="240" width="320" height="20" fill="#343a40"/>
+  
+  <!-- Dimensions -->
+  <line x1="50" y1="275" x2="350" y2="275" stroke="#007bff" stroke-width="1"/>
+  <text x="200" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#007bff">30.0 m</text>
+  
+  <!-- Grid reference -->
+  <text x="20" y="70" font-family="Arial, sans-serif" font-size="10" fill="#495057">A</text>
+  <text x="20" y="130" font-family="Arial, sans-serif" font-size="10" fill="#495057">B</text>
+  <text x="20" y="190" font-family="Arial, sans-serif" font-size="10" fill="#495057">C</text>
+  
+  <text x="85" y="45" font-family="Arial, sans-serif" font-size="10" fill="#495057">1</text>
+  <text x="145" y="45" font-family="Arial, sans-serif" font-size="10" fill="#495057">2</text>
+  <text x="205" y="45" font-family="Arial, sans-serif" font-size="10" fill="#495057">3</text>
+  <text x="265" y="45" font-family="Arial, sans-serif" font-size="10" fill="#495057">4</text>
+  <text x="325" y="45" font-family="Arial, sans-serif" font-size="10" fill="#495057">5</text>
+</svg> 

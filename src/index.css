@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #e0f6e2;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-dark-green hover:bg-primary-800 text-white font-medium py-2 px-4 rounded-2xl transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-brand-light-green hover:bg-brand-medium-green text-brand-dark-green font-medium py-2 px-4 rounded-2xl transition-colors duration-200 border border-brand-medium-green;
+  }
+  
+  .form-input {
+    @apply block w-full rounded-2xl border-gray-300 focus:border-brand-dark-green focus:ring-brand-dark-green;
+  }
+  
+  .form-select {
+    @apply block w-full rounded-2xl border-gray-300 focus:border-brand-dark-green focus:ring-brand-dark-green;
+  }
+  
+  .form-checkbox {
+    @apply text-brand-dark-green focus:ring-brand-dark-green border-gray-300 rounded;
+  }
+  
+  .form-radio {
+    @apply text-brand-dark-green focus:ring-brand-dark-green border-gray-300;
+  }
+}

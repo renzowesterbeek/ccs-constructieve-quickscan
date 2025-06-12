@@ -1,0 +1,231 @@
+flow_version: 0.1
+
+# ─────────────────────────────────────────────────────────────
+# SECTION 0 – PROJECT SET-UP
+# ─────────────────────────────────────────────────────────────
+steps:
+  - id: project_address
+    question: "Wat is het projectadres?"
+    type: string
+    required: true
+    help_text: "Voer het volledige adres in inclusief straat, huisnummer, postcode en plaats. Dit adres wordt gebruikt voor BAG-koppeling en rapportage."
+    example: "Hoofdstraat 123, 1234 AB Amsterdam"
+    next: project_bouwjaar
+
+  - id: project_bouwjaar
+    question: "Wat is volgens BAG het bouwjaar?"
+    type: int
+    required: true
+    help_text: "Het officiële bouwjaar zoals geregistreerd in de Basisregistratie Adressen en Gebouwen (BAG). Dit bepaalt welke bouwvoorschriften van toepassing waren."
+    example: "1985"
+    next:
+      - condition: "value < 1950"
+        goto: fatal_bouwjaar_te_oud
+      - default: showstopper_archief_start
+
+  # ─ Fatal node: bouwjaar te oud
+  - id: fatal_bouwjaar_te_oud
+    result: "PROJECT OUT – Bouwjaar < 1950. Constructieve Quickscan niet van toepassing."
+    terminate: true
+
+# ─────────────────────────────────────────────────────────────
+# SECTION 1 – ARCHIEF & SHOW-STOPPERS
+# ─────────────────────────────────────────────────────────────
+  - id: showstopper_archief_start
+    title: "Archieftekeningen"
+    question: "Zijn originele tekeningen beschikbaar?"
+    type: choice
+    options: ["ja", "nee"]
+    required: true
+    help_text: "As-built tekeningen tonen de werkelijk uitgevoerde constructie. Dit zijn de meest betrouwbare documenten voor beoordeling van de draagstructuur."
+    example: "Originele constructietekeningen van architect/constructeur, revisietekeningen"
+    next:
+      - condition: "value == 'ja'"
+        goto: upload_archief
+      - default: vraag_andere_archieftekeningen
+
+  - id: upload_archief
+    question: "Upload de archieftekeningen (.pdf/.dwg)"
+    type: file
+    allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx"]
+    max_mb: 50
+    multiple: true
+    required: true
+    help_text: "Upload constructietekeningen, plattegronden, doorsnedes en details. Belangrijke informatie: draagstructuur, afmetingen, materiaalspecificaties."
+    example: "/examples/constructietekening-voorbeeld.svg"
+    next: upload_buitenfotos
+
+  - id: vraag_andere_archieftekeningen
+    question: "Zijn er andere archieftekeningen beschikbaar?"
+    type: choice
+    options: ["ja", "nee"]
+    required: true
+    help_text: "Andere archieftekeningen kunnen zijn: originele bouwvergunning tekeningen, aanvraagtekeningen, revisietekeningen, of andere historische documenten."
+    example: "Bouwvergunning tekeningen, aanvraagtekeningen architect, oude revisies"
+    next:
+      - condition: "value == 'ja'"
+        goto: upload_andere_archief
+      - default: upload_archieffotos
+
+  - id: upload_andere_archief
+    question: "Upload andere beschikbare archieftekeningen (.pdf/.dwg)"
+    type: file
+    allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx"]
+    max_mb: 50
+    multiple: true
+    required: true
+    help_text: "Upload alle beschikbare tekeningen. Deze worden in een aparte map 'Archief_Overig' geplaatst met originele bestandsnamen behouden."
+    example: "Bouwvergunning-1985.pdf, Aanvraag-architect.dwg, Revisie-02.pdf"
+    next: upload_archieffotos
+
+  - id: upload_buitenfotos
+    question: "Upload foto's van de buitenkant van het gebouw (.jpg/.png)"
+    type: file
+    allowed_extensions: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"]
+    max_mb: 20
+    multiple: true
+    required: true
+    help_text: "Maak overzichtsfoto's van alle gevels van het gebouw. Deze foto's helpen bij het beoordelen van de constructieve situatie en het type gebouw."
+    example: "Voorgevel.jpg, Achtergevel.jpg, Zijgevel-links.jpg, Zijgevel-rechts.jpg"
+    next: upload_alle_overige_archief
+
+  - id: upload_alle_overige_archief
+    question: "Upload alle andere beschikbare archieftekeningen en documenten"
+    type: file
+    allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx", ".txt", ".xls", ".xlsx"]
+    max_mb: 50
+    multiple: true
+    required: false
+    help_text: "Upload alle overige beschikbare documenten die relevant kunnen zijn. Deze worden in een aparte map 'Archief_Alle_Overige' geplaatst met originele bestandsnamen."
+    example: "Correspondentie.pdf, Oude-rapporten.doc, Historische-foto's.jpg, Specificaties.xlsx"
+    next: vraag_palenplan
+
+  - id: upload_archieffotos
+    question: "Geen tekeningen? Upload dan minimaal duidelijke foto's van fundering en draagstructuur (.jpg/.png)"
+    type: file
+    allowed_extensions: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"]
+    max_mb: 20
+    multiple: true
+    required: true
+    help_text: "Maak foto's van zichtbare constructie-elementen: funderingsbalken, kolommen, liggers, vloeren. Foto's moeten constructiedetails duidelijk tonen."
+    example: "Fundering-zichtbaar.jpg, Kolom-detail.png, Vloerconstructie.jpg"
+    next: upload_buitenfotos
+
+  - id: vraag_palenplan
+    question: "Is er een palenplan aanwezig?"
+    type: choice
+    options: ["ja", "nee", "onbekend"]
+    required: true
+    help_text: "Een palenplan toont locatie, type en specificaties van funderingspalen. Essentieel voor beoordeling van draagkracht bij paalfundering."
+    example: "Tekening met paalposities, paaltype (beton/staal), lengte, diameter"
+    next:
+      - condition: "value == 'ja'"
+        goto: upload_palenplan
+      - default: vraag_sondering
+
+  - id: upload_palenplan
+    question: "Upload het palenplan (.pdf/.dwg)"
+    type: file
+    allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx"]
+    max_mb: 30
+    multiple: true
+    required: true
+    help_text: "Upload tekeningen met paallocaties, types, afmetingen en draagkrachtgegevens. Include legenda en technische specificaties indien beschikbaar."
+    example: "/examples/palenplan-voorbeeld.svg"
+    next: vraag_sondering
+
+  - id: vraag_sondering
+    question: "Zijn actuele sonderingen beschikbaar?"
+    type: choice
+    options: ["ja", "nee"]
+    required: true
+    help_text: "Sonderingen geven inzicht in grondopbouw en draagkracht. Recente gegevens (< 10 jaar) zijn het meest betrouwbaar voor beoordeling."
+    example: "CPT-bestanden, sondering rapporten, grondonderzoek"
+    next:
+      - condition: "value == 'ja'"
+        goto: upload_sondering
+      - default: vraag_schade
+
+  - id: upload_sondering
+    question: "Upload bestand(en)"
+    type: file
+    allowed_extensions: [".cpt", ".txt", ".csv", ".xls", ".xlsx", ".dat"]
+    max_mb: 10
+    multiple: true
+    help_text: "Upload sondering data bestanden. CPT-bestanden bevatten digitale sondering gegevens, andere formaten kunnen rapportages of tabellen zijn."
+    example: "Sondering-001.cpt, Grondonderzoek-rapport.xlsx, CPT-data.txt"
+    next: vraag_schade
+
+  - id: vraag_schade
+    question: "Zijn er zichtbare (constructieve) schades aan het gebouw?"
+    type: choice
+    options: ["geen", "licht", "ernstig"]
+    required: true
+    help_text: "Beoordeel alleen constructieve schades: scheuren in dragende elementen, doorbuiging, losraken verbindingen. Geen cosmetische schades."
+    example: "Licht: kleine scheuren in beton. Ernstig: grote scheuren, zichtbare doorbuiging, losse verbindingen"
+    next:
+      - condition: "value == 'ernstig'"
+        goto: fatal_ernstige_schade
+      - condition: "value == 'licht'"
+        goto: upload_schadefotos
+      - default: wrapup_confirm
+
+  - id: upload_schadefotos
+    question: "Upload foto's van de schades (.jpg/.png)"
+    type: file
+    allowed_extensions: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"]
+    max_mb: 10
+    multiple: true
+    help_text: "Maak duidelijke foto's van alle constructieve schades. Include overzichtsfoto én detailfoto's. Voeg referentie voor schaal toe (muntje, duim)."
+    example: "/examples/schade-voorbeeld.svg"
+    next: wrapup_confirm
+
+  # ─ Fatal node: ernstige schade
+  - id: fatal_ernstige_schade
+    result: "PROJECT OUT – Ernstige constructieve schade vereist aparte beoordeling vóór quickscan."
+    terminate: true
+
+
+# ─────────────────────────────────────────────────────────────
+# SECTION 4 – WRAP-UP & SIGN-OFF
+# ─────────────────────────────────────────────────────────────
+  - id: wrapup_confirm
+    question: "Bevestig dat alle informatie volledig en naar waarheid is ingevuld"
+    type: boolean
+    required: true
+    help_text: "Controleer alle ingevoerde gegevens en geüploade bestanden. Onjuiste informatie kan leiden tot verkeerde conclusies in de quickscan."
+    example: "Vink aan als alle vragen correct zijn beantwoord en alle relevante documenten zijn geüpload"
+    next:
+      - condition: "value == false"
+        goto: fatal_no_confirm
+      - default: digital_signature
+
+  - id: fatal_no_confirm
+    result: "FORM INCOMPLEET – Bevestiging ontbreekt."
+    terminate: true
+
+  - id: digital_signature
+    question: "Voer de naam in van de persoon die de bestanden heeft aangeleverd"
+    type: string
+    required: true
+    help_text: "Volledige naam van de verantwoordelijke persoon die de documenten heeft verzameld en de quickscan heeft ingevuld."
+    example: "Jan de Vries"
+    next: keuze_constructeur
+
+  - id: keuze_constructeur
+    question: "Selecteer uw voorkeur voor de constructeur"
+    type: choice
+    options: ["EversPartners", "Van Rossum", "Pieters Bouwtechniek", "Automatische selectie"]
+    required: true
+    help_text: "Kies de constructeur die u wilt inschakelen voor de uitvoering van uw project. Bij 'Automatische selectie' bepaalt het algoritme de beste match op basis van beschikbaarheid, expertise en projectkenmerken."
+    example: "Maak een specifieke keuze of laat het algoritme de optimale constructeur selecteren"
+    logos: ["/logo/everspartners.png", "/logo/vanrossum.png", "/logo/pieters.png", "/logo/algorithm.png"]
+    next: generate_package
+
+# ─────────────────────────────────────────────────────────────
+# SECTION 5 – AUTO-PACKAGE
+# ─────────────────────────────────────────────────────────────
+  - id: generate_package
+    result: "OK – Intake voltooid. ZIP + summary wordt gegenereerd."
+    action: "generate_zip_and_summary"
+    terminate: true 
