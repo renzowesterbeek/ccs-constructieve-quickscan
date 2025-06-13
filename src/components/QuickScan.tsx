@@ -8,9 +8,10 @@ import type { FlowStep, UploadedFile } from '../types/flow';
 
 interface QuickScanProps {
   yamlContent: string;
+  isDemoMode?: boolean;
 }
 
-export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent }) => {
+export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent, isDemoMode = false }) => {
   const [flowEngine] = useState(() => new FlowEngine(yamlContent));
   const [currentStep, setCurrentStep] = useState<FlowStep | undefined>();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -18,6 +19,25 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent }) => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [terminationReason, setTerminationReason] = useState<string>('');
+
+  // Demo data for different steps
+  const getDemoData = (stepId: string): any => {
+    const demoData: Record<string, any> = {
+      project_address: 'Hoofdstraat 123, 1234 AB Amsterdam',
+      project_bouwjaar: 1985,
+      showstopper_archief_start: 'ja',
+      vraag_andere_archieftekeningen: 'ja',
+      vraag_palenplan: 'ja',
+      vraag_sondering: 'ja',
+      vraag_schade: 'geen',
+      wrapup_confirm: true,
+      digital_signature: 'Demo Gebruiker',
+      organisatie_naam: 'Demo Organisatie BV',
+      keuze_constructeur: 'Automatische selectie'
+    };
+    return demoData[stepId];
+  };
 
   useEffect(() => {
     if (isStarted) {
@@ -47,13 +67,35 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent }) => {
   };
 
   const handleFileUpload = (files: UploadedFile[]) => {
-    setUploadedFiles(prev => [...prev, ...files]);
+    if (isDemoMode) {
+      // In demo mode, create fake file entries
+      const demoFiles: UploadedFile[] = files.length > 0 ? files : [{
+        file: new File(['demo content'], 'demo-file.pdf', { type: 'application/pdf' }),
+        stepId: flowEngine.getCurrentStepId(),
+        name: 'demo-bestand.pdf',
+        size: 1024 * 1024, // 1MB
+        type: 'application/pdf'
+      }];
+      setUploadedFiles(prev => [...prev, ...demoFiles]);
+      handleValueChange(demoFiles);
+    } else {
+      setUploadedFiles(prev => [...prev, ...files]);
+    }
   };
 
   const handleNext = () => {
     if (!flowEngine.canProceed()) {
-      setError('Dit veld is verplicht');
-      return;
+      if (isDemoMode) {
+        // In demo mode, auto-fill with demo data
+        const stepId = flowEngine.getCurrentStepId();
+        const demoValue = getDemoData(stepId);
+        if (demoValue !== undefined) {
+          handleValueChange(demoValue);
+        }
+      } else {
+        setError('Dit veld is verplicht');
+        return;
+      }
     }
 
     const success = flowEngine.proceedToNext();
@@ -61,6 +103,7 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent }) => {
       const nextStep = flowEngine.getCurrentStep();
       if (nextStep?.terminate) {
         setIsCompleted(true);
+        setTerminationReason(nextStep.result || 'Onbekende reden van beëindiging');
       } else {
         setCurrentStep(nextStep);
       }
@@ -69,6 +112,7 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent }) => {
       setFormData(flowEngine.getFormData());
     } else {
       setIsCompleted(true);
+      setTerminationReason('Quickscan voltooid - alle stappen doorlopen');
     }
   };
 
@@ -202,6 +246,7 @@ BEVESTIGING
 -----------
 Informatie volledig en correct: ${formData.wrapup_confirm ? 'Ja' : 'Nee'}
 Verantwoordelijke persoon: ${formData.digital_signature || 'Niet opgegeven'}
+Organisatie: ${formData.organisatie_naam || 'Niet opgegeven'}
 
 ---
 Dit bestand is automatisch gegenereerd door de CCS Constructieve Quickscan tool.
@@ -211,52 +256,103 @@ Voor vragen: <a href="mailto:contact@creativecitysolutions.com" className="text-
 
   // Show start screen if not started yet
   if (!isStarted) {
-    return <StartScreen onStart={handleStart} />;
+    return <StartScreen onStart={handleStart} isDemoMode={isDemoMode} />;
   }
 
   if (isCompleted) {
+    const isTerminated = terminationReason && !terminationReason.includes('voltooid');
+    const isSuccessful = !isTerminated;
+    
     return (
-      <div className="min-h-screen bg-brand-light-green py-12">
+      <div className="min-h-screen bg-white py-8">
         <div className="max-w-2xl mx-auto p-6">
         <div className="text-center space-y-6">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <FileText className="w-8 h-8 text-green-600" />
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
+            isSuccessful ? 'bg-green-100' : 'bg-red-100'
+          }`}>
+            <FileText className={`w-8 h-8 ${
+              isSuccessful ? 'text-green-600' : 'text-red-600'
+            }`} />
           </div>
           
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Quickscan Voltooid!
+            <h2 className={`text-2xl font-bold text-gray-900 mb-2 ${
+              isSuccessful ? '' : 'text-red-700'
+            }`}>
+              {isSuccessful ? 'Quickscan Voltooid!' : 'Quickscan Beëindigd'}
             </h2>
-            <p className="text-gray-600">
-              {currentStep?.result || 'Alle informatie is succesvol verzameld.'}
+            <p className={`text-gray-600 ${
+              isTerminated ? 'text-red-600 font-medium' : ''
+            }`}>
+              {terminationReason}
             </p>
           </div>
 
-          <div className="bg-white rounded-3xl p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Verzamelde informatie:</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="font-medium">Projectadres:</span> {flowEngine.getFormValue('project_address')}
-              </div>
-              <div>
-                <span className="font-medium">Bouwjaar:</span> {flowEngine.getFormValue('project_bouwjaar')}
-              </div>
-              <div>
-                <span className="font-medium">Geüploade bestanden:</span> {uploadedFiles.length}
-              </div>
-              <div>
-                <span className="font-medium">Ingevulde stappen:</span> {Object.keys(flowEngine.getFormData()).length}
+          {isSuccessful && (
+            <div className="bg-white rounded-3xl p-6 border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-4">Verzamelde informatie:</h3>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium">Projectadres:</span> {flowEngine.getFormValue('project_address')}
+                </div>
+                <div>
+                  <span className="font-medium">Bouwjaar:</span> {flowEngine.getFormValue('project_bouwjaar')}
+                </div>
+                <div>
+                  <span className="font-medium">Geüploade bestanden:</span> {uploadedFiles.length}
+                </div>
+                <div>
+                  <span className="font-medium">Ingevulde stappen:</span> {Object.keys(flowEngine.getFormData()).length}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <button
-            onClick={generatePackage}
-            className="btn-primary inline-flex items-center space-x-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Pakket</span>
-          </button>
+          {isTerminated && (
+            <div className="bg-red-50 rounded-3xl p-6 border border-red-200">
+              <h3 className="font-semibold text-red-800 mb-4">Reden van beëindiging:</h3>
+              <p className="text-red-700 text-sm leading-relaxed">
+                {terminationReason}
+              </p>
+              <div className="mt-4 p-3 bg-white rounded-lg border border-red-200">
+                <p className="text-sm text-gray-600">
+                  <strong>Wat nu?</strong> Neem contact op met CCS Engineering voor verdere ondersteuning of om de quickscan opnieuw te starten met aanvullende informatie.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isSuccessful && (
+            <button
+              onClick={generatePackage}
+              className="btn-primary inline-flex items-center space-x-2"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Pakket</span>
+            </button>
+          )}
+
+          {isTerminated && (
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setIsStarted(false);
+                  setIsCompleted(false);
+                  setTerminationReason('');
+                  setUploadedFiles([]);
+                  setFormData({});
+                }}
+                className="btn-secondary inline-flex items-center space-x-2"
+              >
+                <span>Opnieuw Starten</span>
+              </button>
+              <div className="text-sm text-gray-500">
+                <a href="mailto:contact@creativecitysolutions.com" className="text-primary-600 hover:text-primary-800 transition-colors duration-200">
+                  contact@creativecitysolutions.com
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Partner Footer */}
           <div className="mt-12 pt-8 border-t border-gray-300">
@@ -296,7 +392,7 @@ Voor vragen: <a href="mailto:contact@creativecitysolutions.com" className="text-
 
   if (!currentStep) {
     return (
-      <div className="min-h-screen bg-brand-light-green py-12">
+      <div className="min-h-screen bg-white py-8">
         <div className="max-w-2xl mx-auto p-6 text-center">
           <p className="text-gray-600">Laden...</p>
         </div>
@@ -309,7 +405,7 @@ Voor vragen: <a href="mailto:contact@creativecitysolutions.com" className="text-
   const currentValue = formData[currentStep.id];
 
   return (
-    <div className="min-h-screen bg-brand-light-green py-12">
+    <div className="min-h-screen bg-white py-8">
       <div className="max-w-2xl mx-auto p-6">
       {/* Progress bar */}
       <div className="mb-8">
@@ -343,6 +439,7 @@ Voor vragen: <a href="mailto:contact@creativecitysolutions.com" className="text-
           error={error}
           formData={formData}
           uploadedFiles={uploadedFiles}
+          isDemoMode={isDemoMode}
         />
       </div>
 

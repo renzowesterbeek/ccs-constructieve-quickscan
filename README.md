@@ -5,76 +5,93 @@ Een moderne web applicatie voor het verzamelen van project informatie voor const
 ## Features
 
 - **Stap-voor-stap flow**: Intuïtieve gebruikersinterface die gebruikers begeleidt door het quickscan proces
-- **File uploads**: Drag & drop functionaliteit voor het uploaden van tekeningen, foto's en documenten
-- **Voorwaardelijke navigatie**: Intelligente flow logica gebaseerd op antwoorden
-- **Voortgangsindicator**: Real-time weergave van completievoortgang
-- **Validatie**: Automatische validatie van vereiste velden en bestandsformaten
-- **Package generatie**: Automatische creatie van een samenvattingsdocument met alle verzamelde informatie
-- **Responsive design**: Werkt op desktop, tablet en mobiele apparaten
+- **BAG API integratie**: Automatische opzoek van bouwjaar uit de Basisregistratie Adressen en Gebouwen
+- **File upload**: Drag & drop interface voor documenten en foto's
+- **Thumbnail previews**: Automatische miniaturen voor geüploade foto's
+- **Voorwaardelijke navigatie**: Dynamische routing gebaseerd op antwoorden
+- **File upload configuratie**: Toegestane formaten en grootte limieten
+- **Terminatie condities**: Exit points voor verschillende scenario's
 
-## Tech Stack
+## Environment Variables
 
-- **Frontend**: React 18 + TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Build tool**: Vite
-- **YAML parsing**: js-yaml
+De applicatie gebruikt environment variables voor API configuratie. Maak een `.env` bestand aan in de root van het project:
+
+```bash
+# BAG API Configuration
+VITE_BAG_API_KEY=your_bag_api_key_here
+VITE_BAG_API_BASE_URL=https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2
+```
+
+### BAG API Key verkrijgen
+
+1. Ga naar [BAG API Portal](https://lvbag.github.io/BAG-API/)
+2. Registreer voor een API key
+3. Voeg de key toe aan je `.env` bestand
+
+**Let op**: De `.env` file wordt niet in Git opgeslagen voor veiligheid.
+
+## Development Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
 
 ## Project Structuur
 
 ```
 src/
 ├── components/
-│   ├── FormStep.tsx      # Herbruikbare form component voor verschillende input types
-│   └── QuickScan.tsx     # Hoofd component die de flow beheert
-├── types/
-│   └── flow.ts           # TypeScript type definities
+│   ├── FormStep.tsx      # Formulier stap component met BAG integratie
+│   ├── QuickScan.tsx     # Hoofd component die de flow beheert
+│   └── StartScreen.tsx   # Welkomstscherm
 ├── utils/
-│   └── flowEngine.ts     # Core logica voor flow navigatie en validatie
-└── App.tsx               # Root component
+│   ├── bagApi.ts         # BAG API integratie service
+│   └── flowEngine.ts     # Flow logica en validatie
+├── types/
+│   └── flow.ts          # TypeScript definities
+└── App.tsx              # Root component
 ```
 
-## Quickstart
+## BAG API Integratie
 
-1. **Installeer dependencies:**
-   ```bash
-   npm install
-   ```
+De applicatie integreert automatisch met de BAG API om:
 
-2. **Start de development server:**
-   ```bash
-   npm run dev
-   ```
+- **Bouwjaar op te halen** op basis van ingevoerd adres
+- **Adres validatie** te doen
+- **Officiële BAG data** te gebruiken voor accurate beoordelingen
 
-3. **Open de applicatie:**
-   Navigeer naar `http://localhost:5173` in je browser
+### Adres Formaat
 
-## Flow Configuratie
-
-De quickscan flow wordt gedefinieerd in `public/quickscan_flow.yml`. Deze YAML file bevat:
-
-- **Stap definities**: Elk met unieke ID, vraag, input type, en validatie regels
-- **Voorwaardelijke navigatie**: Dynamische routing gebaseerd op antwoorden
-- **File upload configuratie**: Toegestane formaten en grootte limieten
-- **Terminatie condities**: Exit points voor verschillende scenario's
-
-### Voorbeeld stap configuratie:
-
-```yaml
-- id: project_address
-  question: "Wat is het projectadres?"
-  type: string
-  required: true
-  next: project_bouwjaar
-
-- id: upload_archief
-  question: "Upload de archieftekeningen (.pdf/.dwg)"
-  type: file
-  allowed_extensions: [".pdf", ".dwg"]
-  max_mb: 50
-  required: true
-  next: vraag_palenplan
+Het verwachte adres formaat is:
 ```
+"Straatnaam 123, 1234 AB Plaatsnaam"
+```
+
+Voorbeeld: `"Hoofdstraat 123, 1234 AB Amsterdam"`
+
+## Deployment
+
+Zie `AWS_DEPLOYMENT.md` voor uitgebreide deployment instructies.
+
+### Environment Variables in Productie
+
+Voor AWS Amplify deployment, voeg environment variables toe in de Amplify console:
+
+1. Ga naar je app in AWS Amplify
+2. Settings → Environment variables
+3. Voeg toe:
+   - `VITE_BAG_API_KEY` = je BAG API key
+   - `VITE_BAG_API_BASE_URL` = https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2
 
 ## Ondersteunde Input Types
 
@@ -91,6 +108,7 @@ De quickscan flow wordt gedefinieerd in `public/quickscan_flow.yml`. Deze YAML f
 - Grootte validatie (MB limiet)
 - Multiple file support
 - Real-time upload feedback
+- Thumbnail previews voor afbeeldingen
 
 ## Output
 

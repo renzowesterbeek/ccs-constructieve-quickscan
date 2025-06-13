@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Upload, CheckCircle, AlertCircle, HelpCircle, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, CheckCircle, AlertCircle, HelpCircle, X, Search, Loader2 } from 'lucide-react';
 import type { FlowStep, UploadedFile } from '../types/flow';
+import { BAGApiService } from '../utils/bagApi';
 
 interface FormStepProps {
   step: FlowStep;
@@ -11,6 +12,7 @@ interface FormStepProps {
   error?: string;
   formData?: Record<string, any>;
   uploadedFiles?: UploadedFile[];
+  isDemoMode?: boolean;
 }
 
 export const FormStep: React.FC<FormStepProps> = ({
@@ -21,10 +23,96 @@ export const FormStep: React.FC<FormStepProps> = ({
   isRequired,
   error,
   formData,
-  uploadedFiles
+  uploadedFiles,
+  isDemoMode = false
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [bagLoading, setBagLoading] = useState(false);
+  const [bagError, setBagError] = useState<string>('');
+
+  // BAG API integration for building year lookup
+  useEffect(() => {
+    if (step.id === 'project_bouwjaar' && formData?.project_address && !value) {
+      const address = formData.project_address;
+      
+      // Only proceed if address format is valid and API is available
+      if (BAGApiService.isValidAddressFormat(address) && BAGApiService.isApiAvailable()) {
+        setBagLoading(true);
+        setBagError('');
+        
+        BAGApiService.getBuildingYear(address)
+          .then((buildingYear) => {
+            if (buildingYear) {
+              onChange(buildingYear);
+            }
+          })
+          .catch((error) => {
+            console.error('BAG API lookup failed:', error);
+            setBagError('Kon bouwjaar niet automatisch ophalen. Voer handmatig in.');
+          })
+          .finally(() => {
+            setBagLoading(false);
+          });
+      } else if (!BAGApiService.isApiAvailable()) {
+        setBagError('BAG API niet beschikbaar. Voer bouwjaar handmatig in.');
+      }
+    }
+  }, [step.id, formData?.project_address, value, onChange]);
+
+  // Auto-upload demo files when in demo mode
+  useEffect(() => {
+    if (isDemoMode && step.type === 'file' && !value && onFileUpload) {
+      // Create demo files based on step type
+      const demoFiles: UploadedFile[] = [];
+      
+      if (step.id.includes('archief')) {
+        demoFiles.push({
+          file: new File(['demo archief content'], 'demo-archieftekening.pdf', { type: 'application/pdf' }),
+          stepId: step.id,
+          name: 'demo-archieftekening.pdf',
+          size: 2 * 1024 * 1024, // 2MB
+          type: 'application/pdf'
+        });
+      } else if (step.id.includes('foto')) {
+        demoFiles.push({
+          file: new File(['demo foto content'], 'demo-foto.jpg', { type: 'image/jpeg' }),
+          stepId: step.id,
+          name: 'demo-foto.jpg',
+          size: 1 * 1024 * 1024, // 1MB
+          type: 'image/jpeg'
+        });
+      } else if (step.id.includes('palenplan')) {
+        demoFiles.push({
+          file: new File(['demo palenplan content'], 'demo-palenplan.pdf', { type: 'application/pdf' }),
+          stepId: step.id,
+          name: 'demo-palenplan.pdf',
+          size: 1.5 * 1024 * 1024, // 1.5MB
+          type: 'application/pdf'
+        });
+      } else if (step.id.includes('sondering')) {
+        demoFiles.push({
+          file: new File(['demo sondering content'], 'demo-sondering.cpt', { type: 'application/octet-stream' }),
+          stepId: step.id,
+          name: 'demo-sondering.cpt',
+          size: 512 * 1024, // 512KB
+          type: 'application/octet-stream'
+        });
+      } else {
+        // Generic demo file
+        demoFiles.push({
+          file: new File(['demo content'], 'demo-bestand.pdf', { type: 'application/pdf' }),
+          stepId: step.id,
+          name: 'demo-bestand.pdf',
+          size: 1024 * 1024, // 1MB
+          type: 'application/pdf'
+        });
+      }
+      
+      onFileUpload(demoFiles);
+      onChange(demoFiles);
+    }
+  }, [isDemoMode, step.type, step.id, value, onFileUpload, onChange]);
 
   const generateSummary = () => {
     if (!formData || !uploadedFiles) return null;
@@ -37,6 +125,7 @@ export const FormStep: React.FC<FormStepProps> = ({
       vraag_sondering: 'Sonderingen beschikbaar',
       vraag_schade: 'Zichtbare constructieve schades',
       digital_signature: 'Verantwoordelijke persoon',
+      organisatie_naam: 'Organisatie',
       keuze_constructeur: 'Gekozen constructeur'
     };
 
@@ -155,22 +244,67 @@ export const FormStep: React.FC<FormStepProps> = ({
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="form-input"
-            placeholder={step.question}
+            className="form-input w-full"
+            placeholder={step.example || ''}
             required={isRequired}
           />
         );
 
       case 'int':
+        return (
+          <div className="space-y-2">
+            <input
+              type="number"
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value ? parseInt(e.target.value) : '')}
+              className="form-input w-full"
+              placeholder={step.example || ''}
+              required={isRequired}
+            />
+            
+            {/* BAG API integration for building year */}
+            {step.id === 'project_bouwjaar' && formData?.project_address && (
+              <div className="flex items-center space-x-2 text-sm">
+                {bagLoading ? (
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Bouwjaar ophalen uit BAG...</span>
+                  </div>
+                ) : bagError ? (
+                  <div className="flex items-center space-x-2 text-orange-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{bagError}</span>
+                  </div>
+                ) : value ? (
+                  <div className="flex items-center space-x-2 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Bouwjaar automatisch opgehaald uit BAG</span>
+                  </div>
+                ) : BAGApiService.isApiAvailable() ? (
+                  <div className="flex items-center space-x-2 text-gray-500">
+                    <Search className="h-4 w-4" />
+                    <span>Bouwjaar wordt automatisch opgehaald</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-gray-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>BAG API niet beschikbaar - handmatig invoeren</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
       case 'float':
         return (
           <input
             type="number"
-            step={step.type === 'float' ? 'any' : '1'}
+            step="0.01"
             value={value || ''}
-            onChange={(e) => onChange(step.type === 'int' ? parseInt(e.target.value) : parseFloat(e.target.value))}
-            className="form-input"
-            placeholder={step.question}
+            onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : '')}
+            className="form-input w-full"
+            placeholder={step.example || ''}
             required={isRequired}
           />
         );
@@ -213,20 +347,6 @@ export const FormStep: React.FC<FormStepProps> = ({
                           {option}
                         </div>
                       </div>
-                      {isSelected && (
-                        <div className="absolute top-2 right-2">
-                          <CheckCircle className="h-5 w-5 text-primary-500" />
-                        </div>
-                      )}
-                      <input
-                        type="radio"
-                        name={step.id}
-                        value={option}
-                        checked={isSelected}
-                        onChange={() => onChange(option)}
-                        className="sr-only"
-                        required={isRequired}
-                      />
                     </div>
                   );
                 })}
@@ -234,16 +354,16 @@ export const FormStep: React.FC<FormStepProps> = ({
             </div>
           );
         }
-        
-        // Fallback to regular dropdown if no logos
+
+        // Regular dropdown
         return (
           <select
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="form-select"
+            className="form-select w-full"
             required={isRequired}
           >
-            <option value="">Selecteer een optie...</option>
+            <option value="">Selecteer een optie</option>
             {step.options?.map((option) => (
               <option key={option} value={option}>
                 {option}

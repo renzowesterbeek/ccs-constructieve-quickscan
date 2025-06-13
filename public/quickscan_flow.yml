@@ -5,18 +5,20 @@ flow_version: 0.1
 # ─────────────────────────────────────────────────────────────
 steps:
   - id: project_address
+    title: "Projectadres"
     question: "Wat is het projectadres?"
     type: string
     required: true
-    help_text: "Voer het volledige adres in inclusief straat, huisnummer, postcode en plaats. Dit adres wordt gebruikt voor BAG-koppeling en rapportage."
+    help_text: "Voer het volledige adres in inclusief straat, huisnummer, postcode en plaats. Dit adres wordt gebruikt voor BAG-koppeling en rapportage. Het bouwjaar wordt automatisch opgehaald uit de BAG database."
     example: "Hoofdstraat 123, 1234 AB Amsterdam"
     next: project_bouwjaar
 
   - id: project_bouwjaar
+    title: "Bouwjaar volgens BAG"
     question: "Wat is volgens BAG het bouwjaar?"
     type: int
     required: true
-    help_text: "Het officiële bouwjaar zoals geregistreerd in de Basisregistratie Adressen en Gebouwen (BAG). Dit bepaalt welke bouwvoorschriften van toepassing waren."
+    help_text: "Het officiële bouwjaar zoals geregistreerd in de Basisregistratie Adressen en Gebouwen (BAG). Dit wordt automatisch opgehaald uit de BAG database op basis van het ingevoerde adres. Het bouwjaar bepaalt welke bouwvoorschriften van toepassing waren."
     example: "1985"
     next:
       - condition: "value < 1950"
@@ -45,7 +47,8 @@ steps:
       - default: vraag_andere_archieftekeningen
 
   - id: upload_archief
-    question: "Upload de archieftekeningen (.pdf/.dwg)"
+    title: "Upload Archieftekeningen"
+    question: "Upload de archieftekeningen"
     type: file
     allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx"]
     max_mb: 50
@@ -56,6 +59,7 @@ steps:
     next: upload_buitenfotos
 
   - id: vraag_andere_archieftekeningen
+    title: "Andere Archieftekeningen"
     question: "Zijn er andere archieftekeningen beschikbaar?"
     type: choice
     options: ["ja", "nee"]
@@ -68,7 +72,8 @@ steps:
       - default: upload_archieffotos
 
   - id: upload_andere_archief
-    question: "Upload andere beschikbare archieftekeningen (.pdf/.dwg)"
+    title: "Upload Andere Archieftekeningen"
+    question: "Upload andere beschikbare archieftekeningen"
     type: file
     allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx"]
     max_mb: 50
@@ -79,7 +84,8 @@ steps:
     next: upload_archieffotos
 
   - id: upload_buitenfotos
-    question: "Upload foto's van de buitenkant van het gebouw (.jpg/.png)"
+    title: "Foto's Buitenkant Gebouw"
+    question: "Upload foto's van de buitenkant van het gebouw"
     type: file
     allowed_extensions: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"]
     max_mb: 20
@@ -90,6 +96,7 @@ steps:
     next: upload_alle_overige_archief
 
   - id: upload_alle_overige_archief
+    title: "Overige Archieftekeningen"
     question: "Upload alle andere beschikbare archieftekeningen en documenten"
     type: file
     allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx", ".txt", ".xls", ".xlsx"]
@@ -101,7 +108,8 @@ steps:
     next: vraag_palenplan
 
   - id: upload_archieffotos
-    question: "Geen tekeningen? Upload dan minimaal duidelijke foto's van fundering en draagstructuur (.jpg/.png)"
+    title: "Foto's Fundering en Draagstructuur"
+    question: "Upload minimaal duidelijke foto's van fundering en draagstructuur"
     type: file
     allowed_extensions: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"]
     max_mb: 20
@@ -112,6 +120,7 @@ steps:
     next: upload_buitenfotos
 
   - id: vraag_palenplan
+    title: "Palenplan"
     question: "Is er een palenplan aanwezig?"
     type: choice
     options: ["ja", "nee", "onbekend"]
@@ -124,7 +133,8 @@ steps:
       - default: vraag_sondering
 
   - id: upload_palenplan
-    question: "Upload het palenplan (.pdf/.dwg)"
+    title: "Upload Palenplan"
+    question: "Upload het palenplan"
     type: file
     allowed_extensions: [".pdf", ".dwg", ".dxf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".doc", ".docx"]
     max_mb: 30
@@ -135,6 +145,7 @@ steps:
     next: vraag_sondering
 
   - id: vraag_sondering
+    title: "Sonderingen"
     question: "Zijn actuele sonderingen beschikbaar?"
     type: choice
     options: ["ja", "nee"]
@@ -147,6 +158,7 @@ steps:
       - default: vraag_schade
 
   - id: upload_sondering
+    title: "Upload Sonderingen"
     question: "Upload bestand(en)"
     type: file
     allowed_extensions: [".cpt", ".txt", ".csv", ".xls", ".xlsx", ".dat"]
@@ -157,6 +169,7 @@ steps:
     next: vraag_schade
 
   - id: vraag_schade
+    title: "Constructieve Schades"
     question: "Zijn er zichtbare (constructieve) schades aan het gebouw?"
     type: choice
     options: ["geen", "licht", "ernstig"]
@@ -171,7 +184,8 @@ steps:
       - default: wrapup_confirm
 
   - id: upload_schadefotos
-    question: "Upload foto's van de schades (.jpg/.png)"
+    title: "Foto's van Schades"
+    question: "Upload foto's van de schades"
     type: file
     allowed_extensions: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"]
     max_mb: 10
@@ -190,6 +204,7 @@ steps:
 # SECTION 4 – WRAP-UP & SIGN-OFF
 # ─────────────────────────────────────────────────────────────
   - id: wrapup_confirm
+    title: "Bevestiging"
     question: "Bevestig dat alle informatie volledig en naar waarheid is ingevuld"
     type: boolean
     required: true
@@ -205,14 +220,25 @@ steps:
     terminate: true
 
   - id: digital_signature
+    title: "Verantwoordelijke Persoon"
     question: "Voer de naam in van de persoon die de bestanden heeft aangeleverd"
     type: string
     required: true
     help_text: "Volledige naam van de verantwoordelijke persoon die de documenten heeft verzameld en de quickscan heeft ingevuld."
     example: "Jan de Vries"
+    next: organisatie_naam
+
+  - id: organisatie_naam
+    title: "Organisatie"
+    question: "Voer de naam van uw organisatie in"
+    type: string
+    required: true
+    help_text: "Naam van de organisatie waarvoor de quickscan wordt uitgevoerd."
+    example: "Gemeente Amsterdam"
     next: keuze_constructeur
 
   - id: keuze_constructeur
+    title: "Keuze Constructeur"
     question: "Selecteer uw voorkeur voor de constructeur"
     type: choice
     options: ["EversPartners", "Van Rossum", "Pieters Bouwtechniek", "Automatische selectie"]
