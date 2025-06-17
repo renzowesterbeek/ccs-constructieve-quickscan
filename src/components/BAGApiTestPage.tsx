@@ -3,7 +3,6 @@ import { ArrowLeft } from 'lucide-react';
 import { BAGApiTest } from './BAGApiTest';
 import { Footer } from './Footer';
 import { Header } from './Header';
-import packageJson from '../../package.json';
 
 interface BAGApiTestPageProps {
   onBack: () => void;

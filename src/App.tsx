@@ -4,7 +4,6 @@ import { QuickScan } from './components/QuickScan';
 import { BAGApiTestPage } from './components/BAGApiTestPage';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
-import packageJson from '../package.json';
 
 function App() {
   const [yamlContent, setYamlContent] = useState<string>('');

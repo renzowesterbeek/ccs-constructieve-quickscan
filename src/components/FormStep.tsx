@@ -40,6 +40,15 @@ export const FormStep: React.FC<FormStepProps> = ({
   const [addressInput, setAddressInput] = useState(value || '');
   const [addressLoading, setAddressLoading] = useState(false);
 
+  // Email validatie state
+  const [emailError, setEmailError] = useState<string>('');
+
+  // Email validatie functie
+  const validateEmail = (email: string) => {
+    // Simpele regex voor email validatie
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   // BAG API integration for building year lookup
   useEffect(() => {
     if (step.id === 'project_bouwjaar' && formData?.project_address && !value) {
@@ -288,6 +297,34 @@ export const FormStep: React.FC<FormStepProps> = ({
   const renderInput = () => {
     switch (step.type) {
       case 'string':
+        // Email validatie voor digital_email
+        if (step.id === 'digital_email') {
+          return (
+            <div>
+              <input
+                type="email"
+                value={value || ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  onChange(val);
+                  if (!validateEmail(val)) {
+                    setEmailError('Voer een geldig e-mailadres in.');
+                  } else {
+                    setEmailError('');
+                  }
+                }}
+                className={`form-input w-full ${emailError ? 'border-red-500' : ''}`}
+                placeholder={step.example || ''}
+                required={isRequired}
+                onKeyDown={handleKeyPress}
+                autoComplete="email"
+              />
+              {emailError && (
+                <div className="text-red-500 text-xs mt-1">{emailError}</div>
+              )}
+            </div>
+          );
+        }
         return (
           <input
             type="text"

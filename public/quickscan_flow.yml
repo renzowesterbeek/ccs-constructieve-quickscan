@@ -251,6 +251,15 @@ steps:
     required: true
     help_text: "Volledige naam van de verantwoordelijke persoon die de documenten heeft verzameld en de quickscan heeft ingevuld."
     example: "Jan de Vries"
+    next: digital_email
+
+  - id: digital_email
+    title: "E-mailadres"
+    question: "Wat is het e-mailadres van de verantwoordelijke persoon?"
+    type: string
+    required: true
+    help_text: "Vul een geldig e-mailadres in voor eventuele terugkoppeling of vragen over de quickscan."
+    example: "jan.devries@email.com"
     next: organisatie_naam
 
   - id: organisatie_naam

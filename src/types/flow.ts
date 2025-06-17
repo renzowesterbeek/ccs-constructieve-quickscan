@@ -2,7 +2,7 @@ export interface FlowStep {
   id: string;
   question?: string;
   title?: string;
-  type?: 'string' | 'int' | 'float' | 'choice' | 'boolean' | 'file';
+  type?: 'string' | 'int' | 'float' | 'choice' | 'boolean' | 'file' | 'address';
   options?: (string | number)[];
   logos?: string[];
   required?: boolean;
