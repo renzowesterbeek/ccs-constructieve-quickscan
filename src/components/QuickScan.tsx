@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, FileText, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Download, Upload, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { FlowEngine } from '../utils/flowEngine';
+import { PackageService } from '../utils/packageService';
 import { FormStep } from './FormStep';
 import { StartScreen } from './StartScreen';
 import type { FlowStep, UploadedFile } from '../types/flow';
@@ -20,6 +21,9 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent, isDemoMode = 
   const [isStarted, setIsStarted] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [terminationReason, setTerminationReason] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [uploadMessage, setUploadMessage] = useState<string>('');
 
   // Demo data for different steps
   const getDemoData = (stepId: string): any => {
@@ -132,81 +136,132 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent, isDemoMode = 
   };
 
   const generatePackage = async () => {
-    const formData = flowEngine.getFormData();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const projectAddress = formData.project_address || 'Onbekend_Adres';
-    const buildingYear = formData.project_bouwjaar || 'Onbekend_Jaar';
-    
-    // Clean project address for filename
-    const cleanAddress = projectAddress.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-    
-    // Create a summary document
-    const summary = {
-      timestamp,
-      projectAddress: formData.project_address,
-      buildingYear: formData.project_bouwjaar,
-      formData,
-      uploadedFiles: uploadedFiles.map(f => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        stepId: f.stepId
-      }))
-    };
+    setIsUploading(true);
+    setUploadStatus('uploading');
+    setUploadMessage('Bestanden worden geüpload naar S3...');
 
-    // Create ZIP file
-    const zip = new JSZip();
-    
-    // Add summary JSON to ZIP
-    zip.file('01_Overzicht_Quickscan.json', JSON.stringify(summary, null, 2));
-    
-    // Create a readable summary report
-    const readableSummary = generateReadableSummary(formData, uploadedFiles);
-    zip.file('02_Samenvatting_Quickscan.txt', readableSummary);
-    
-    // Add uploaded files with logical names
-    const stepNameMapping = {
-      upload_archief: '03_Archieftekeningen',
-      upload_palenplan: '04_Palenplan',
-      upload_sondering: '05_Sonderingen',
-      upload_schadefotos: '06_Schadefotos',
-      upload_archieffotos: '07_Archief_Fotos',
-      upload_structuurtekening: '08_Structuurtekeningen'
-    };
-    
-    // Count files per category for numbering
-    const fileCounts: Record<string, number> = {};
-    
-    for (const uploadedFile of uploadedFiles) {
-      const categoryName = stepNameMapping[uploadedFile.stepId as keyof typeof stepNameMapping] || uploadedFile.stepId;
-      
-      if (!fileCounts[categoryName]) {
-        fileCounts[categoryName] = 0;
-      }
-      fileCounts[categoryName]++;
-      
-      const fileExtension = uploadedFile.name.split('.').pop() || '';
-      const fileName = `${categoryName}_${fileCounts[categoryName]}.${fileExtension}`;
-      
-      try {
-        zip.file(fileName, uploadedFile.file);
-      } catch (error) {
-        console.warn('Failed to add file to ZIP:', uploadedFile.name, error);
-      }
-    }
-    
-    // Generate and download ZIP
     try {
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const zipUrl = URL.createObjectURL(zipBlob);
-      const zipLink = document.createElement('a');
-      zipLink.href = zipUrl;
-      zipLink.download = `Quickscan_${cleanAddress}_${buildingYear}_${timestamp}.zip`;
-      zipLink.click();
-      URL.revokeObjectURL(zipUrl);
+      const formData = flowEngine.getFormData();
+      const timestamp = new Date().toISOString();
+      const projectAddress = formData.project_address || 'Onbekend_Adres';
+      const buildingYear = formData.project_bouwjaar || 'Onbekend_Jaar';
+      
+      // Check if backend service is available
+      const isBackendAvailable = await PackageService.checkHealth();
+      
+      if (isBackendAvailable) {
+        // Upload individual files to S3
+        setUploadMessage('Bestanden worden geconverteerd en geüpload...');
+        
+        // Convert uploaded files to base64
+        const fileUploads = await Promise.all(
+          uploadedFiles.map(async (uploadedFile) => ({
+            name: uploadedFile.name,
+            data: await PackageService.fileToBase64(uploadedFile.file),
+            type: uploadedFile.type,
+            size: uploadedFile.size,
+            stepId: uploadedFile.stepId
+          }))
+        );
+        
+        const uploadResponse = await PackageService.uploadFiles({
+          files: fileUploads,
+          summary: {
+            projectAddress: formData.project_address || 'Onbekend',
+            buildingYear: formData.project_bouwjaar || 'Onbekend',
+            timestamp,
+            formData
+          }
+        });
+
+        if (uploadResponse.success) {
+          setUploadStatus('success');
+          setUploadMessage(`Package succesvol geüpload! ${uploadResponse.uploadedFiles} bestanden (${(uploadResponse.totalSize! / 1024 / 1024).toFixed(2)} MB). Email notificatie verzonden naar renzo@creativecitysolutions.com`);
+        } else {
+          throw new Error(uploadResponse.error || 'Upload failed');
+        }
+      } else {
+        // Fallback to local ZIP download only
+        setUploadMessage('Backend service niet beschikbaar - lokaal ZIP genereren...');
+        
+        // Create ZIP file locally as fallback
+        const zip = new JSZip();
+        
+        // Add summary JSON to ZIP
+        const summary = {
+          timestamp,
+          projectAddress: formData.project_address,
+          buildingYear: formData.project_bouwjaar,
+          formData,
+          uploadedFiles: uploadedFiles.map(f => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            stepId: f.stepId
+          }))
+        };
+        
+        zip.file('00_Summary_Quickscan.json', JSON.stringify(summary, null, 2));
+        
+        // Create a readable summary report
+        const readableSummary = generateReadableSummary(formData, uploadedFiles);
+        zip.file('01_Samenvatting_Quickscan.txt', readableSummary);
+        
+        // Add uploaded files with logical names
+        const stepNameMapping = {
+          upload_archief: '02_Archieftekeningen',
+          upload_palenplan: '03_Palenplan',
+          upload_sondering: '04_Sonderingen',
+          upload_schadefotos: '05_Schadefotos',
+          upload_archieffotos: '06_Archief_Fotos',
+          upload_structuurtekening: '07_Structuurtekeningen'
+        };
+        
+        // Count files per category for numbering
+        const fileCounts: Record<string, number> = {};
+        
+        for (const uploadedFile of uploadedFiles) {
+          const categoryName = stepNameMapping[uploadedFile.stepId as keyof typeof stepNameMapping] || uploadedFile.stepId;
+          
+          if (!fileCounts[categoryName]) {
+            fileCounts[categoryName] = 0;
+          }
+          fileCounts[categoryName]++;
+          
+          const fileExtension = uploadedFile.name.split('.').pop() || '';
+          const fileName = `${categoryName}_${fileCounts[categoryName]}.${fileExtension}`;
+          
+          try {
+            zip.file(fileName, uploadedFile.file);
+          } catch (error) {
+            console.warn('Failed to add file to ZIP:', uploadedFile.name, error);
+          }
+        }
+        
+        // Generate and download ZIP
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const cleanAddress = projectAddress.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+        const fileName = `Quickscan_${cleanAddress}_${buildingYear}_${timestamp.replace(/[:.]/g, '-')}.zip`;
+        
+        const zipUrl = URL.createObjectURL(zipBlob);
+        const zipLink = document.createElement('a');
+        zipLink.href = zipUrl;
+        zipLink.download = fileName;
+        zipLink.click();
+        URL.revokeObjectURL(zipUrl);
+        
+        setUploadStatus('success');
+        setUploadMessage('Package lokaal gedownload als ZIP (backend service niet beschikbaar)');
+      }
     } catch (error) {
-      console.error('Failed to generate ZIP:', error);
-      alert('Er is een fout opgetreden bij het maken van het ZIP bestand.');
+      console.error('Failed to upload files:', error);
+      setUploadStatus('error');
+      setUploadMessage(`Fout bij het uploaden van bestanden: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+      
+      // Show alert as fallback
+      alert('Er is een fout opgetreden bij het uploaden van de bestanden.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -323,13 +378,135 @@ Voor vragen: <a href="mailto:contact@creativecitysolutions.com" className="text-
           )}
 
           {isSuccessful && (
-            <button
-              onClick={generatePackage}
-              className="btn-primary inline-flex items-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Pakket</span>
-            </button>
+            <div className="space-y-4">
+              {/* Upload Status Display */}
+              {uploadStatus !== 'idle' && (
+                <div className={`rounded-lg p-4 border ${
+                  uploadStatus === 'success' ? 'bg-green-50 border-green-200' :
+                  uploadStatus === 'error' ? 'bg-red-50 border-red-200' :
+                  'bg-blue-50 border-blue-200'
+                }`}>
+                  <div className="flex items-center space-x-3">
+                    {uploadStatus === 'uploading' && (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    )}
+                    {uploadStatus === 'success' && (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    )}
+                    {uploadStatus === 'error' && (
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${
+                        uploadStatus === 'success' ? 'text-green-800' :
+                        uploadStatus === 'error' ? 'text-red-800' :
+                        'text-blue-800'
+                      }`}>
+                        {uploadMessage}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={generatePackage}
+                  disabled={isUploading}
+                  className={`inline-flex items-center space-x-2 ${
+                    isUploading 
+                      ? 'bg-gray-300 cursor-not-allowed' 
+                      : 'btn-primary hover:bg-primary-700'
+                  }`}
+                >
+                  {isUploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Bezig met uploaden...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Upload naar S3 & Stuur Email</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Fallback download button */}
+                <button
+                  onClick={async () => {
+                    // Generate and download locally only
+                    const formData = flowEngine.getFormData();
+                    const timestamp = new Date().toISOString();
+                    const projectAddress = formData.project_address || 'Onbekend_Adres';
+                    const buildingYear = formData.project_bouwjaar || 'Onbekend_Jaar';
+                    const cleanAddress = projectAddress.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+                    const fileName = `Quickscan_${cleanAddress}_${buildingYear}_${timestamp.replace(/[:.]/g, '-')}.zip`;
+                    
+                    const zip = new JSZip();
+                    const summary = {
+                      timestamp,
+                      projectAddress: formData.project_address,
+                      buildingYear: formData.project_bouwjaar,
+                      formData,
+                      uploadedFiles: uploadedFiles.map(f => ({
+                        name: f.name,
+                        size: f.size,
+                        type: f.type,
+                        stepId: f.stepId
+                      }))
+                    };
+                    
+                    zip.file('00_Summary_Quickscan.json', JSON.stringify(summary, null, 2));
+                    zip.file('01_Samenvatting_Quickscan.txt', generateReadableSummary(formData, uploadedFiles));
+                    
+                    const stepNameMapping = {
+                      upload_archief: '02_Archieftekeningen',
+                      upload_palenplan: '03_Palenplan',
+                      upload_sondering: '04_Sonderingen',
+                      upload_schadefotos: '05_Schadefotos',
+                      upload_archieffotos: '06_Archief_Fotos',
+                      upload_structuurtekening: '07_Structuurtekeningen'
+                    };
+                    
+                    const fileCounts: Record<string, number> = {};
+                    for (const uploadedFile of uploadedFiles) {
+                      const categoryName = stepNameMapping[uploadedFile.stepId as keyof typeof stepNameMapping] || uploadedFile.stepId;
+                      if (!fileCounts[categoryName]) fileCounts[categoryName] = 0;
+                      fileCounts[categoryName]++;
+                      const fileExtension = uploadedFile.name.split('.').pop() || '';
+                      const zipFileName = `${categoryName}_${fileCounts[categoryName]}.${fileExtension}`;
+                      zip.file(zipFileName, uploadedFile.file);
+                    }
+                    
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const zipUrl = URL.createObjectURL(zipBlob);
+                    const zipLink = document.createElement('a');
+                    zipLink.href = zipUrl;
+                    zipLink.download = fileName;
+                    zipLink.click();
+                    URL.revokeObjectURL(zipUrl);
+                  }}
+                  className="btn-secondary inline-flex items-center space-x-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Alleen Lokaal ZIP Downloaden</span>
+                </button>
+              </div>
+
+              {/* Info about the process */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Wat gebeurt er?</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Bestanden worden direct geüpload naar AWS S3 (geen ZIP)</li>
+                  <li>• Georganiseerde mapstructuur in S3 per categorie</li>
+                  <li>• Email notificatie wordt verzonden naar renzo@creativecitysolutions.com</li>
+                  <li>• Download link wordt gegenereerd (7 dagen geldig)</li>
+                  <li>• Veel sneller dan ZIP genereren en uploaden</li>
+                </ul>
+              </div>
+            </div>
           )}
 
           {isTerminated && (

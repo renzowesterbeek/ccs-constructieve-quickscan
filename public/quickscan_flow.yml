@@ -192,6 +192,31 @@ steps:
     multiple: true
     help_text: "Maak duidelijke foto's van alle constructieve schades. Include overzichtsfoto én detailfoto's. Voeg referentie voor schaal toe (muntje, duim)."
     example: "/examples/schade-voorbeeld.svg"
+    next: vraag_betonrot_rapport
+
+  - id: vraag_betonrot_rapport
+    title: "Betonrot/Constructierapport"
+    question: "Is er een betonrot- of constructierapport beschikbaar?"
+    type: choice
+    options: ["ja", "nee"]
+    required: true
+    help_text: "Een betonrot- of constructierapport bevat gedetailleerde informatie over de conditie van betonconstructies, eventuele schades, en aanbevelingen voor herstel of onderhoud."
+    example: "Rapport van betonrotonderzoek, constructieve inspectierapport, betonconditie-analyse"
+    next:
+      - condition: "value == 'ja'"
+        goto: upload_betonrot_rapport
+      - default: wrapup_confirm
+
+  - id: upload_betonrot_rapport
+    title: "Upload Betonrot/Constructierapport"
+    question: "Upload het betonrot- of constructierapport"
+    type: file
+    allowed_extensions: [".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx"]
+    max_mb: 25
+    multiple: true
+    required: true
+    help_text: "Upload het volledige rapport inclusief bijlagen. Het rapport wordt gebruikt voor een complete beoordeling van de constructieve staat van het gebouw."
+    example: "Betonrot-onderzoek-2024.pdf, Constructierapport-van-Rossum.docx, Betonconditie-analyse.xlsx"
     next: wrapup_confirm
 
   # ─ Fatal node: ernstige schade

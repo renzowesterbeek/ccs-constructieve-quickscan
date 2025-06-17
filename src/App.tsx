@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import { QuickScan } from './components/QuickScan';
+import packageJson from '../package.json';
 
 function App() {
   const [yamlContent, setYamlContent] = useState<string>('');
@@ -85,7 +86,7 @@ function App() {
                 </div>
               )}
               <div className="text-xs text-gray-500">
-                v0.1 MVP
+                v{packageJson.version}
               </div>
             </div>
           </div>
