@@ -35,6 +35,8 @@ export class PackageService {
   static debugConnection(): void {
     console.log('🔍 Debug: API_BASE_URL =', this.API_BASE_URL);
     console.log('🔍 Debug: Environment variable =', import.meta.env.VITE_API_BASE_URL);
+    console.log('🔍 Debug: All env vars =', import.meta.env);
+    console.log('🔍 Debug: Is using fallback URL?', !import.meta.env.VITE_API_BASE_URL);
   }
 
   /**
