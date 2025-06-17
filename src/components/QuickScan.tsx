@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, FileText, Download, Upload, Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Download, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { FlowEngine } from '../utils/flowEngine';
 import { PackageService } from '../utils/packageService';
