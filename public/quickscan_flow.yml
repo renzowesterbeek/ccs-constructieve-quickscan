@@ -27,7 +27,7 @@ steps:
 
   # ─ Fatal node: bouwjaar te oud
   - id: fatal_bouwjaar_te_oud
-    result: "PROJECT OUT – Bouwjaar < 1950. Constructieve Quickscan niet van toepassing."
+    result: "We voeren Quickscans op het moment alleen uit voor gebouwen ouder dan 1950."
     terminate: true
 
 # ─────────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ steps:
 
   # ─ Fatal node: ernstige schade
   - id: fatal_ernstige_schade
-    result: "PROJECT OUT – Ernstige constructieve schade vereist aparte beoordeling vóór quickscan."
+    result: "Bij ernstige schade aan de constructie kunnen we geen Quickscan op basis van archiefmateriaal uitvoeren."
     terminate: true
 
 

@@ -8,6 +8,7 @@ interface FormStepProps {
   value: any;
   onChange: (value: any) => void;
   onFileUpload?: (files: UploadedFile[]) => void;
+  onNext?: () => void;
   isRequired: boolean;
   error?: string;
   formData?: Record<string, any>;
@@ -20,6 +21,7 @@ export const FormStep: React.FC<FormStepProps> = ({
   value,
   onChange,
   onFileUpload,
+  onNext,
   isRequired,
   error,
   formData,
@@ -182,6 +184,13 @@ export const FormStep: React.FC<FormStepProps> = ({
     return URL.createObjectURL(file.file);
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && onNext) {
+      e.preventDefault();
+      onNext();
+    }
+  };
+
   const handleFileUpload = (files: FileList | null) => {
     if (!files || !onFileUpload) return;
 
@@ -247,6 +256,7 @@ export const FormStep: React.FC<FormStepProps> = ({
             className="form-input w-full"
             placeholder={step.example || ''}
             required={isRequired}
+            onKeyDown={handleKeyPress}
           />
         );
 
@@ -260,6 +270,7 @@ export const FormStep: React.FC<FormStepProps> = ({
               className="form-input w-full"
               placeholder={step.example || ''}
               required={isRequired}
+              onKeyDown={handleKeyPress}
             />
             
             {/* BAG API integration for building year */}
@@ -306,6 +317,7 @@ export const FormStep: React.FC<FormStepProps> = ({
             className="form-input w-full"
             placeholder={step.example || ''}
             required={isRequired}
+            onKeyDown={handleKeyPress}
           />
         );
 
@@ -362,6 +374,7 @@ export const FormStep: React.FC<FormStepProps> = ({
             onChange={(e) => onChange(e.target.value)}
             className="form-select w-full"
             required={isRequired}
+            onKeyDown={handleKeyPress}
           >
             <option value="">Selecteer een optie</option>
             {step.options?.map((option) => (
@@ -383,6 +396,7 @@ export const FormStep: React.FC<FormStepProps> = ({
                 onChange={() => onChange(true)}
                 className="form-radio"
                 required={isRequired}
+                onKeyDown={handleKeyPress}
               />
               <span className="ml-2">Ja</span>
             </label>
@@ -394,6 +408,7 @@ export const FormStep: React.FC<FormStepProps> = ({
                 onChange={() => onChange(false)}
                 className="form-radio"
                 required={isRequired}
+                onKeyDown={handleKeyPress}
               />
               <span className="ml-2">Nee</span>
             </label>
@@ -439,6 +454,7 @@ export const FormStep: React.FC<FormStepProps> = ({
                 multiple={step.multiple}
                 accept={step.allowed_extensions?.join(',')}
                 required={isRequired}
+                onKeyDown={handleKeyPress}
               />
               <label
                 htmlFor={`file-${step.id}`}
@@ -526,7 +542,8 @@ export const FormStep: React.FC<FormStepProps> = ({
               {step.question}
               {isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {(step.help_text || step.example) && (
+            {/* Only show help button if not in demo mode */}
+            {!isDemoMode && (step.help_text || step.example) && (
               <button
                 type="button"
                 onClick={() => setShowHelp(!showHelp)}
@@ -538,7 +555,8 @@ export const FormStep: React.FC<FormStepProps> = ({
             )}
           </div>
         
-        {showHelp && (step.help_text || step.example) && (
+        {/* Show help information if: in demo mode OR user clicked help button */}
+        {((isDemoMode && (step.help_text || step.example)) || showHelp) && (
           <div className="mb-4 p-4 bg-primary-50 border border-primary-200 rounded-lg">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -566,14 +584,17 @@ export const FormStep: React.FC<FormStepProps> = ({
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setShowHelp(false)}
-                className="ml-2 text-primary-600 hover:text-primary-800"
-                title="Sluit help"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              {/* Only show close button if not in demo mode */}
+              {!isDemoMode && (
+                <button
+                  type="button"
+                  onClick={() => setShowHelp(false)}
+                  className="ml-2 text-primary-600 hover:text-primary-800"
+                  title="Sluit help"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -603,6 +624,13 @@ export const FormStep: React.FC<FormStepProps> = ({
         
         {renderInput()}
       </div>
+      
+      {/* Enter key hint */}
+      {onNext && (step.type === 'string' || step.type === 'int' || step.type === 'float') && (
+        <div className="mt-2 text-xs text-gray-500">
+          Druk op Enter om door te gaan
+        </div>
+      )}
       
       {error && (
         <div className="flex items-center space-x-2 text-red-600">

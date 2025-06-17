@@ -73,7 +73,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, isDemoMode = 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Transparante Prijzen</h3>
               <p className="text-gray-800 text-lg font-medium mb-2">
-                €2.500 - €3.000 incl. BTW per gebouw
+                €3.000 - €4.000 incl. BTW per gebouw
               </p>
               <p className="text-gray-600 text-sm">
                 (indicatief - exacte prijs op basis van project)
@@ -113,7 +113,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, isDemoMode = 
           </p>
         </div>
 
-        {/* Partner Footer */}
+        {/* Partner Section */}
         <div className="mt-8 pt-6 border-t border-gray-300">
           <div className="text-center mb-4">
             <h4 className="text-lg font-medium text-gray-700 mb-2">Onze Partners</h4>

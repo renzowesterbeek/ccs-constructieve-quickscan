@@ -90,20 +90,21 @@ Uploads a quickscan package to S3 and sends email notification.
 **Request Body:**
 ```json
 {
-  "zipData": "base64-encoded-zip-content",
-  "fileName": "Quickscan_ProjectName_2024_01_15.zip",
-  "projectAddress": "Hoofdstraat 123, 1234 AB Amsterdam",
-  "buildingYear": "1985",
-  "timestamp": "2024-01-15T10:30:00.000Z",
-  "formData": { /* form data object */ },
-  "uploadedFiles": [
+  "files": [
     {
       "name": "document.pdf",
-      "size": 1024000,
+      "data": "base64-encoded-file-content",
       "type": "application/pdf",
+      "size": 1024000,
       "stepId": "upload_archief"
     }
-  ]
+  ],
+  "summary": {
+    "projectAddress": "Hoofdstraat 123, 1234 AB Amsterdam",
+    "buildingYear": "1985",
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "formData": { /* form data object */ }
+  }
 }
 ```
 
@@ -111,9 +112,71 @@ Uploads a quickscan package to S3 and sends email notification.
 ```json
 {
   "success": true,
-  "message": "Package uploaded and email sent successfully",
+  "message": "Files uploaded and email sent successfully",
+  "downloadUrls": [
+    {
+      "name": "00_Summary_Quickscan.json",
+      "url": "https://s3.amazonaws.com/...",
+      "size": 2048,
+      "type": "application/json",
+      "stepId": "summary"
+    },
+    {
+      "name": "document.pdf",
+      "url": "https://s3.amazonaws.com/...",
+      "size": 1024000,
+      "type": "application/pdf",
+      "stepId": "upload_archief"
+    }
+  ],
+  "folderName": "Quickscan_Hoofdstraat_123_1985_2024-01-15T10-30-00-000Z",
+  "uploadedFiles": 1,
+  "totalSize": 1026048
+}
+```
+
+### GET /download/{folderName}/{fileName}
+
+Generates a presigned download URL for a specific file.
+
+**Parameters:**
+- `folderName`: The package folder name
+- `fileName`: The name of the file to download
+
+**Response:**
+```json
+{
+  "success": true,
   "downloadUrl": "https://s3.amazonaws.com/...",
-  "s3Key": "packages/2024-01-15T10-30-00-000Z/Quickscan_ProjectName_2024_01_15.zip"
+  "fileName": "document.pdf",
+  "expiresIn": "7 days"
+}
+```
+
+### GET /files/{folderName}
+
+Lists all files in a package folder.
+
+**Parameters:**
+- `folderName`: The package folder name
+
+**Response:**
+```json
+{
+  "success": true,
+  "folderName": "Quickscan_Hoofdstraat_123_1985_2024-01-15T10-30-00-000Z",
+  "files": [
+    {
+      "name": "00_Summary_Quickscan.json",
+      "size": 2048,
+      "lastModified": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "name": "01_Archieftekeningen/document.pdf",
+      "size": 1024000,
+      "lastModified": "2024-01-15T10:30:00.000Z"
+    }
+  ]
 }
 ```
 

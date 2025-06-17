@@ -157,4 +157,9 @@ export class FlowEngine {
     
     return Math.min((completedSteps / totalSteps) * 100, 100);
   }
+
+  reset(): void {
+    this.currentStepId = this.flowDefinition.steps[0]?.id || '';
+    this.formData = {};
+  }
 } 

@@ -1,4 +1,4 @@
-# Constructieve Quickscan - CCS Engineering
+# Constructieve Quickscan - CCS
 
 Een moderne web applicatie voor het verzamelen van project informatie voor constructieve beoordelingen. Deze tool begeleidt gebruikers stap voor stap door een gestructureerd proces voor het uploaden van documenten en het beantwoorden van technische vragen.
 
@@ -15,6 +15,101 @@ Een moderne web applicatie voor het verzamelen van project informatie voor const
 - **Email Notificaties**: Automatische email notificaties met download links
 - **Secure Downloads**: Tijdsgebonden download links (7 dagen geldig)
 
+## BAG API Setup
+
+De applicatie integreert automatisch met de BAG API om bouwjaren op te halen op basis van ingevoerde adressen.
+
+### Stap 1: API Key Aanvragen
+
+1. Ga naar het [Kadaster BAG API Portal](https://formulieren.kadaster.nl/aanvraag_bag_api_individuele_bevragingen_productie)
+2. Vul het formulier in voor een API key voor de productieomgeving
+3. Je ontvangt binnen enkele werkdagen een API key per email
+
+### Stap 2: Environment Variables Configureren
+
+1. Kopieer `env.example` naar `.env`:
+   ```bash
+   cp env.example .env
+   ```
+
+2. Voeg je API key toe aan het `.env` bestand:
+   ```bash
+   # BAG API Configuration
+   VITE_BAG_API_KEY=your_actual_api_key_here
+   VITE_BAG_API_BASE_URL=https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2
+   ```
+
+3. Herstart de development server:
+   ```bash
+   npm run dev
+   ```
+
+### Stap 3: API Testen
+
+De applicatie bevat een ingebouwde BAG API test die toegankelijk is via een directe URL:
+
+**BAG API Test URL**: `http://localhost:3000/bag-test-api`
+
+1. Start de applicatie met `npm run dev`
+2. Navigeer naar `http://localhost:3000/bag-test-api`
+3. Voer een testadres in (bijv. "Dorpsstraat 15, 2631 CR Nootdorp")
+4. Klik op "Test BAG API"
+5. Controleer of de test succesvol is
+
+**Alternatief**: De BAG API test is ook beschikbaar via de home page, maar is nu verplaatst naar een aparte pagina voor een schonere interface.
+
+### Adres Formaat
+
+Het verwachte adres formaat is:
+```
+"Straatnaam 123, 1234 AB Plaatsnaam"
+```
+
+Voorbeelden:
+- `"Hoofdstraat 123, 1234 AB Amsterdam"`
+- `"Dorpsstraat 15, 2631 CR Nootdorp"`
+- `"Kerkstraat 42A, 5678 CD Rotterdam"`
+
+### BAG API Functionaliteit
+
+De BAG API integratie biedt:
+
+- **Automatische bouwjaar lookup** op basis van adres
+- **Adres validatie** en parsing
+- **Fallback mechanismen** voor verschillende zoekmethoden
+- **Uitgebreide logging** voor debugging
+- **Error handling** en graceful degradation
+
+### Troubleshooting BAG API
+
+#### API Key Problemen
+- **Symptoom**: "BAG API key not configured" error
+- **Oplossing**: Controleer of `VITE_BAG_API_KEY` correct is ingesteld in `.env`
+
+#### Adres Parsing Problemen
+- **Symptoom**: "Invalid address format" error
+- **Oplossing**: Gebruik het juiste adres formaat: "Straatnaam 123, 1234 AB Plaatsnaam"
+
+#### API Rate Limiting
+- **Symptoom**: 429 Too Many Requests error
+- **Oplossing**: De BAG API heeft rate limits. Wacht enkele seconden en probeer opnieuw
+
+#### Geen Bouwjaar Gevonden
+- **Symptoom**: API werkt maar geen bouwjaar gevonden
+- **Oplossing**: Dit kan normaal zijn voor sommige adressen. Controleer of het adres correct is
+
+#### CORS Problemen
+- **Symptoom**: CORS errors in browser console
+- **Oplossing**: De BAG API ondersteunt CORS. Controleer je API key en URL
+
+### BAG API Endpoints Gebruikt
+
+De applicatie gebruikt de volgende BAG API endpoints:
+
+- `/adressen` - Zoeken naar adressen op postcode/huisnummer
+- `/panden/{id}` - Ophalen van bouwjaar uit pand informatie
+- `/verblijfsobjecten/{id}` - Fallback voor bouwjaar informatie
+
 ## Environment Variables
 
 De applicatie gebruikt environment variables voor API configuratie. Maak een `.env` bestand aan in de root van het project:
@@ -27,12 +122,6 @@ VITE_BAG_API_BASE_URL=https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v
 # Backend API Configuration (voor S3 upload en email)
 VITE_API_BASE_URL=https://your-api-gateway-url.amazonaws.com/dev
 ```
-
-### BAG API Key verkrijgen
-
-1. Ga naar [BAG API Portal](https://lvbag.github.io/BAG-API/)
-2. Registreer voor een API key
-3. Voeg de key toe aan je `.env` bestand
 
 **Let op**: De `.env` file wordt niet in Git opgeslagen voor veiligheid.
 
@@ -79,7 +168,8 @@ src/
 ├── components/
 │   ├── FormStep.tsx      # Formulier stap component met BAG integratie
 │   ├── QuickScan.tsx     # Hoofd component die de flow beheert
-│   └── StartScreen.tsx   # Welkomstscherm
+│   ├── StartScreen.tsx   # Welkomstscherm met BAG API test
+│   └── BAGApiTest.tsx    # BAG API test component
 ├── utils/
 │   ├── bagApi.ts         # BAG API integratie service
 │   ├── flowEngine.ts     # Flow logica en validatie
@@ -95,23 +185,6 @@ backend/
 ├── package.json         # Backend dependencies
 └── README.md           # Backend deployment instructies
 ```
-
-## BAG API Integratie
-
-De applicatie integreert automatisch met de BAG API om:
-
-- **Bouwjaar op te halen** op basis van ingevoerd adres
-- **Adres validatie** te doen
-- **Officiële BAG data** te gebruiken voor accurate beoordelingen
-
-### Adres Formaat
-
-Het verwachte adres formaat is:
-```
-"Straatnaam 123, 1234 AB Plaatsnaam"
-```
-
-Voorbeeld: `"Hoofdstraat 123, 1234 AB Amsterdam"`
 
 ## S3 & Email Integratie
 
@@ -185,24 +258,45 @@ npm run preview  # Preview productie build
 
 ## MVP Status
 
-Deze applicatie is een volledig functionele productieversie met de volgende features:
+✅ **Core Features Complete**
+- Stap-voor-stap flow
+- BAG API integratie
+- File upload functionaliteit
+- S3 & Email integratie
+- Mobile responsive design
+- Error handling & validation
 
-- ✅ Cloud storage integratie (AWS S3)
-- ✅ Database persistence (S3 metadata)
-- ✅ Multi-user support (via S3)
-- ✅ Advanced package generatie (ZIP files)
-- ✅ Email notificaties (AWS SES)
-- ✅ Admin dashboard (email notificaties)
-- ✅ Secure file handling
-- ✅ Auto-cleanup van oude bestanden
+🔄 **In Development**
+- Advanced BAG API features
+- Additional file type support
+- Enhanced error reporting
 
-## Kosten
-
-**Geschatte maandelijkse kosten:**
-- **Frontend (Amplify)**: ~$1-5/maand
-- **Backend (Lambda + S3 + SES)**: ~$1.80/maand
-- **Totaal**: ~$3-7/maand
+📋 **Planned**
+- Multi-language support
+- Advanced analytics
+- Integration with external systems
 
 ## License
 
-© 2024 CCS Engineering. Alle rechten voorbehouden.
+© 2024 CCS. Alle rechten voorbehouden.
+
+## 📝 Next Steps
+
+After deployment:
+1. Test the application thoroughly
+2. Set up monitoring (CloudWatch, AWS X-Ray)
+3. Configure backups if needed
+4. Set up CI/CD for automated deployments
+5. Consider adding a backend API if needed
+
+## 🆘 Troubleshooting
+
+### Common Issues:
+- **404 errors**: Ensure error document points to `index.html`
+- **Asset loading**: Check that assets are publicly accessible
+- **Routing issues**: Configure CloudFront for SPA routing
+
+### Support:
+- AWS Documentation
+- AWS Support (if you have a support plan)
+- Community forums

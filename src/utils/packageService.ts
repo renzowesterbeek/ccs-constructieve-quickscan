@@ -19,15 +19,40 @@ interface PackageUploadRequest {
 interface PackageUploadResponse {
   success: boolean;
   message: string;
-  downloadUrl?: string;
+  downloadUrls?: Array<{
+    name: string;
+    url: string;
+    size: number;
+    type: string;
+    stepId: string;
+  }>;
   folderName?: string;
   uploadedFiles?: number;
   totalSize?: number;
   error?: string;
 }
 
+interface FileDownloadResponse {
+  success: boolean;
+  downloadUrl?: string;
+  fileName?: string;
+  expiresIn?: string;
+  error?: string;
+}
+
+interface FolderListingResponse {
+  success: boolean;
+  folderName?: string;
+  files?: Array<{
+    name: string;
+    size: number;
+    lastModified?: string;
+  }>;
+  error?: string;
+}
+
 export class PackageService {
-  private static readonly API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://your-api-gateway-url.amazonaws.com/dev';
+  private static API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
   /**
    * Debug method to log the current API URL and test connection
@@ -76,35 +101,133 @@ export class PackageService {
   }
 
   /**
-   * Convert a File to base64 string
+   * Get download URL for a specific file
    */
-  static async fileToBase64(file: File): Promise<string> {
+  static async getFileDownloadUrl(folderName: string, fileName: string): Promise<FileDownloadResponse> {
+    try {
+      console.log('🔍 Getting download URL for:', `${folderName}/${fileName}`);
+      
+      const response = await fetch(`${this.API_BASE_URL}/download/${encodeURIComponent(folderName)}/${encodeURIComponent(fileName)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      console.log('📡 Download URL response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to get download URL:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List files in a folder
+   */
+  static async listFolderFiles(folderName: string): Promise<FolderListingResponse> {
+    try {
+      console.log('📁 Listing files in folder:', folderName);
+      
+      const response = await fetch(`${this.API_BASE_URL}/files/${encodeURIComponent(folderName)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      console.log('📡 Folder listing response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to list folder files:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Download a file using its URL
+   */
+  static async downloadFile(url: string, fileName: string): Promise<void> {
+    try {
+      console.log('📥 Downloading file:', fileName);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      console.log('✅ File downloaded successfully:', fileName);
+    } catch (error) {
+      console.error('❌ Failed to download file:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Download all files from a package
+   */
+  static async downloadAllFiles(downloadUrls: Array<{ name: string; url: string; size: number; type: string; stepId: string }>): Promise<void> {
+    try {
+      console.log('📦 Downloading all files:', downloadUrls.length);
+      
+      for (const file of downloadUrls) {
+        try {
+          await this.downloadFile(file.url, file.name);
+          // Add a small delay between downloads to avoid overwhelming the browser
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error(`❌ Failed to download ${file.name}:`, error);
+          // Continue with other files
+        }
+      }
+      
+      console.log('✅ All files downloaded');
+    } catch (error) {
+      console.error('❌ Failed to download all files:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Convert file to base64
+   */
+  static fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.readAsDataURL(file);
       reader.onload = () => {
         const result = reader.result as string;
         // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
         const base64 = result.split(',')[1];
         resolve(base64);
       };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.onerror = error => reject(error);
     });
-  }
-
-  /**
-   * Convert multiple files to base64
-   */
-  static async filesToBase64(files: File[]): Promise<Array<{ name: string; data: string; type: string; size: number }>> {
-    const results = await Promise.all(
-      files.map(async (file) => ({
-        name: file.name,
-        data: await this.fileToBase64(file),
-        type: file.type,
-        size: file.size
-      }))
-    );
-    return results;
   }
 
   /**

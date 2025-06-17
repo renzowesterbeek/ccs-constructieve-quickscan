@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -34,7 +34,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const headers = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
       'Content-Type': 'application/json',
     };
 
@@ -45,6 +45,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers,
         body: '',
       };
+    }
+
+    // Handle GET requests for file downloads
+    if (event.httpMethod === 'GET') {
+      return await handleGetRequest(event, headers);
     }
 
     if (event.httpMethod !== 'POST') {
@@ -168,22 +173,50 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     await s3Client.send(summaryCommand);
 
-    // Generate presigned URL for the summary file (expires in 7 days)
-    let downloadUrl = '';
+    // Generate presigned URLs for all files (expires in 7 days)
+    const downloadUrls: Array<{ name: string; url: string; size: number; type: string; stepId: string }> = [];
+    
+    // Add summary file download URL
     try {
-      const getObjectCommand = new GetObjectCommand({
+      const getSummaryCommand = new GetObjectCommand({
         Bucket: S3_BUCKET,
         Key: summaryKey,
       });
-
-      downloadUrl = await getSignedUrl(s3Client, getObjectCommand, { expiresIn: 604800 }); // 7 days
+      const summaryDownloadUrl = await getSignedUrl(s3Client, getSummaryCommand, { expiresIn: 604800 }); // 7 days
+      downloadUrls.push({
+        name: '00_Summary_Quickscan.json',
+        url: summaryDownloadUrl,
+        size: JSON.stringify(summaryData).length,
+        type: 'application/json',
+        stepId: 'summary'
+      });
     } catch (presignedUrlError) {
-      console.warn('Failed to generate presigned URL:', presignedUrlError);
+      console.warn('Failed to generate summary presigned URL:', presignedUrlError);
     }
 
-    // Send email notification
+    // Generate presigned URLs for all uploaded files
+    for (const file of uploadedFiles) {
+      try {
+        const getObjectCommand = new GetObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: file.s3Key,
+        });
+        const downloadUrl = await getSignedUrl(s3Client, getObjectCommand, { expiresIn: 604800 }); // 7 days
+        downloadUrls.push({
+          name: file.name,
+          url: downloadUrl,
+          size: file.size,
+          type: file.type,
+          stepId: file.stepId
+        });
+      } catch (presignedUrlError) {
+        console.warn(`Failed to generate presigned URL for ${file.name}:`, presignedUrlError);
+      }
+    }
+
+    // Send email notification with download links
     const emailSubject = `Nieuwe Quickscan Package: ${projectAddress || 'Onbekend Adres'}`;
-    const emailBody = generateEmailBody(folderName, projectAddress, buildingYear, timestamp, downloadUrl, uploadedFiles);
+    const emailBody = generateEmailBody(folderName, projectAddress, buildingYear, timestamp, downloadUrls, uploadedFiles);
 
     const emailCommand = new SendEmailCommand({
       Source: EMAIL_FROM,
@@ -201,7 +234,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             Charset: 'UTF-8',
           },
           Html: {
-            Data: generateEmailHtml(folderName, projectAddress, buildingYear, timestamp, downloadUrl, uploadedFiles),
+            Data: generateEmailHtml(folderName, projectAddress, buildingYear, timestamp, downloadUrls, uploadedFiles),
             Charset: 'UTF-8',
           },
         },
@@ -216,7 +249,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({
         success: true,
         message: 'Files uploaded and email sent successfully',
-        downloadUrl: downloadUrl || 'Presigned URL generation failed, but files uploaded successfully',
+        downloadUrls,
         folderName,
         uploadedFiles: uploadedFiles.length,
         totalSize: uploadedFiles.reduce((sum, f) => sum + f.size, 0),
@@ -231,7 +264,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -242,12 +275,93 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 };
 
+// Handle GET requests for file downloads
+async function handleGetRequest(event: APIGatewayProxyEvent, headers: Record<string, string>): Promise<APIGatewayProxyResult> {
+  const { pathParameters, queryStringParameters } = event;
+  
+  // Handle file download requests
+  if (pathParameters?.folderName && pathParameters?.fileName) {
+    const { folderName, fileName } = pathParameters;
+    const s3Key = `packages/${folderName}/${fileName}`;
+    
+    try {
+      const getObjectCommand = new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: s3Key,
+      });
+      
+      const downloadUrl = await getSignedUrl(s3Client, getObjectCommand, { expiresIn: 604800 }); // 7 days
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          downloadUrl,
+          fileName,
+          expiresIn: '7 days'
+        }),
+      };
+    } catch (error) {
+      console.error('Failed to generate download URL:', error);
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'File not found' }),
+      };
+    }
+  }
+  
+  // Handle folder listing requests
+  if (pathParameters?.folderName) {
+    const { folderName } = pathParameters;
+    const prefix = `packages/${folderName}/`;
+    
+    try {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: S3_BUCKET,
+        Prefix: prefix,
+      });
+      
+      const result = await s3Client.send(listCommand);
+      const files = result.Contents?.map(obj => ({
+        name: obj.Key?.replace(prefix, '') || '',
+        size: obj.Size || 0,
+        lastModified: obj.LastModified
+      })).filter(file => file.name) || [];
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          folderName,
+          files
+        }),
+      };
+    } catch (error) {
+      console.error('Failed to list folder contents:', error);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Failed to list folder contents' }),
+      };
+    }
+  }
+  
+  return {
+    statusCode: 400,
+    headers,
+    body: JSON.stringify({ error: 'Invalid request parameters' }),
+  };
+}
+
 function generateEmailBody(
   folderName: string,
   projectAddress: string,
   buildingYear: string,
   timestamp: string,
-  downloadUrl: string,
+  downloadUrls: Array<{ name: string; url: string; size: number; type: string; stepId: string }>,
   uploadedFiles: Array<{ name: string; s3Key: string; size: number; type: string; stepId: string }>
 ): string {
   const fileCount = uploadedFiles?.length || 0;
@@ -279,6 +393,10 @@ function generateEmailBody(
     .map(([category, files]) => `${category}:\n  ${files.join('\n  ')}`)
     .join('\n\n');
 
+  const downloadLinks = downloadUrls.map(file => 
+    `${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB):\n${file.url}`
+  ).join('\n\n');
+
   return `
 Nieuwe Quickscan Package Ontvangen
 
@@ -292,8 +410,8 @@ Geüploade bestanden: ${fileCount} bestanden (${totalSizeMB} MB totaal)
 Bestanden per categorie:
 ${categoryList}
 
-${downloadUrl ? `Download link voor summary (geldig voor 7 dagen):
-${downloadUrl}` : 'Download link kon niet worden gegenereerd, maar bestanden zijn geüpload naar S3.'}
+Download links (geldig voor 7 dagen):
+${downloadLinks}
 
 ---
 Dit is een automatische notificatie van de CCS Constructieve Quickscan tool.
@@ -306,7 +424,7 @@ function generateEmailHtml(
   projectAddress: string,
   buildingYear: string,
   timestamp: string,
-  downloadUrl: string,
+  downloadUrls: Array<{ name: string; url: string; size: number; type: string; stepId: string }>,
   uploadedFiles: Array<{ name: string; s3Key: string; size: number; type: string; stepId: string }>
 ): string {
   const fileCount = uploadedFiles?.length || 0;
@@ -344,10 +462,12 @@ function generateEmailHtml(
         </div>
       `).join('');
 
-  const downloadSection = downloadUrl 
-    ? `<a href="${downloadUrl}" class="download-btn">📥 Download Summary</a>
-       <p><em>Deze download link is 7 dagen geldig.</em></p>`
-    : `<p><em>Download link kon niet worden gegenereerd, maar bestanden zijn geüpload naar S3.</em></p>`;
+  const downloadLinks = downloadUrls.map(file => 
+    `<div class="download-item">
+      <a href="${file.url}" class="download-btn">📥 ${file.name}</a>
+      <span class="file-size">(${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+    </div>`
+  ).join('');
 
   return `
 <!DOCTYPE html>
@@ -362,17 +482,22 @@ function generateEmailHtml(
             display: inline-block; 
             background-color: #007bff; 
             color: white; 
-            padding: 12px 24px; 
+            padding: 8px 16px; 
             text-decoration: none; 
-            border-radius: 6px; 
-            margin: 20px 0; 
+            border-radius: 4px; 
+            margin: 4px 8px 4px 0; 
+            font-size: 14px;
         }
+        .download-item { margin-bottom: 8px; }
+        .file-size { color: #666; font-size: 12px; }
         .file-list { background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; }
         .category { margin-bottom: 15px; }
         .category h4 { margin: 0 0 8px 0; color: #495057; }
         .category ul { margin: 0; padding-left: 20px; }
         .category li { margin-bottom: 4px; }
         .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+        .download-section { background-color: #e8f4fd; padding: 15px; border-radius: 6px; margin: 15px 0; }
+        .download-section h3 { margin-top: 0; color: #0056b3; }
     </style>
 </head>
 <body>
@@ -395,7 +520,11 @@ function generateEmailHtml(
             ${categorySections}
         </div>
         
-        ${downloadSection}
+        <div class="download-section">
+            <h3>📥 Download Bestanden</h3>
+            <p><em>Deze download links zijn 7 dagen geldig.</em></p>
+            ${downloadLinks}
+        </div>
         
         <div class="footer">
             <p>Dit is een automatische notificatie van de CCS Constructieve Quickscan tool.</p>
