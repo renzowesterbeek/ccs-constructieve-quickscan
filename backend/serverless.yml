@@ -1,0 +1,65 @@
+service: ccs-quickscan-backend
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: eu-west-1
+  environment:
+    S3_BUCKET: ${self:service}-packages-${opt:stage, 'dev'}
+    EMAIL_FROM: renzo@creativecitysolutions.com
+    EMAIL_TO: renzo@creativecitysolutions.com
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+        - s3:DeleteObject
+      Resource: 
+        - arn:aws:s3:::${self:service}-packages-${opt:stage, 'dev'}/*
+    - Effect: Allow
+      Action:
+        - ses:SendEmail
+        - ses:SendRawEmail
+      Resource: "*"
+
+functions:
+  uploadPackage:
+    handler: src/index.handler
+    events:
+      - http:
+          path: /upload-package
+          method: post
+          cors: true
+    timeout: 30
+    memorySize: 512
+
+resources:
+  Resources:
+    QuickscanPackagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-packages-${opt:stage, 'dev'}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldPackages
+              Status: Enabled
+              ExpirationInDays: 30
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, POST, PUT, DELETE]
+              AllowedOrigins: ['*']
+              MaxAge: 3000
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001 
