@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, CheckCircle, AlertCircle, HelpCircle, X, Search, Loader2 } from 'lucide-react';
 import type { FlowStep, UploadedFile } from '../types/flow';
 import { BAGApiService } from '../utils/bagApi';
+import type { BAGAddress } from '../utils/bagApi';
 
 interface FormStepProps {
   step: FlowStep;
@@ -32,6 +33,12 @@ export const FormStep: React.FC<FormStepProps> = ({
   const [showHelp, setShowHelp] = useState(false);
   const [bagLoading, setBagLoading] = useState(false);
   const [bagError, setBagError] = useState<string>('');
+
+  // Autocomplete state voor adres
+  const [addressSuggestions, setAddressSuggestions] = useState<BAGAddress[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [addressInput, setAddressInput] = useState(value || '');
+  const [addressLoading, setAddressLoading] = useState(false);
 
   // BAG API integration for building year lookup
   useEffect(() => {
@@ -115,6 +122,39 @@ export const FormStep: React.FC<FormStepProps> = ({
       onChange(demoFiles);
     }
   }, [isDemoMode, step.type, step.id, value, onFileUpload, onChange]);
+
+  // Suggesties ophalen bij typen
+  useEffect(() => {
+    if (step.id === 'project_address' && addressInput && addressInput.length > 3) {
+      setAddressLoading(true);
+      // Fallback: alles als zoekterm
+      const zoekterm = encodeURIComponent(addressInput);
+      fetch(`https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/adressen?zoekterm=${zoekterm}&page=1&pageSize=5`, {
+        headers: {
+          'X-Api-Key': import.meta.env.VITE_BAG_API_KEY,
+          'Accept': 'application/hal+json',
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          setAddressSuggestions(data._embedded?.adressen || []);
+          setShowSuggestions(true);
+        })
+        .catch(() => setAddressSuggestions([]))
+        .finally(() => setAddressLoading(false));
+    } else {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [addressInput, step.id]);
+
+  // Adres selecteren uit suggesties
+  const handleAddressSelect = (suggestion: BAGAddress) => {
+    const formatted = `${suggestion.openbareRuimteNaam} ${suggestion.huisnummer}${suggestion.huisletter || ''}${suggestion.huisnummertoevoeging || ''}, ${suggestion.postcode}, ${suggestion.woonplaatsNaam}`;
+    setAddressInput(formatted);
+    setShowSuggestions(false);
+    onChange(formatted);
+  };
 
   const generateSummary = () => {
     if (!formData || !uploadedFiles) return null;
@@ -521,6 +561,41 @@ export const FormStep: React.FC<FormStepProps> = ({
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        );
+
+      case 'address':
+        return (
+          <div className="relative">
+            <input
+              type="text"
+              value={addressInput}
+              onChange={e => {
+                setAddressInput(e.target.value);
+                setShowSuggestions(true);
+              }}
+              className="form-input w-full"
+              placeholder={step.example || ''}
+              required={isRequired}
+              autoComplete="off"
+              onKeyDown={handleKeyPress}
+            />
+            {addressLoading && (
+              <div className="absolute right-2 top-2"><Loader2 className="h-4 w-4 animate-spin text-primary-600" /></div>
+            )}
+            {showSuggestions && addressSuggestions.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded shadow mt-1 max-h-56 overflow-auto">
+                {addressSuggestions.map((s) => (
+                  <li
+                    key={s.nummeraanduidingIdentificatie}
+                    className="px-4 py-2 cursor-pointer hover:bg-primary-50 text-sm"
+                    onClick={() => handleAddressSelect(s)}
+                  >
+                    {s.openbareRuimteNaam} {s.huisnummer}{s.huisletter || ''}{s.huisnummertoevoeging || ''}, {s.postcode}, {s.woonplaatsNaam}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         );
