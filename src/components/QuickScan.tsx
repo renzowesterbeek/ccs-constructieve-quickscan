@@ -146,8 +146,13 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent, isDemoMode = 
       const projectAddress = formData.project_address || 'Onbekend_Adres';
       const buildingYear = formData.project_bouwjaar || 'Onbekend_Jaar';
       
+      // Debug connection info
+      PackageService.debugConnection();
+      
       // Check if backend service is available
+      console.log('🔍 Checking backend availability...');
       const isBackendAvailable = await PackageService.checkHealth();
+      console.log('🔍 Backend available:', isBackendAvailable);
       
       if (isBackendAvailable) {
         // Upload individual files to S3
@@ -183,6 +188,7 @@ export const QuickScan: React.FC<QuickScanProps> = ({ yamlContent, isDemoMode = 
       } else {
         // Fallback to local ZIP download only
         setUploadMessage('Backend service niet beschikbaar - lokaal ZIP genereren...');
+        console.log('⚠️ Falling back to local ZIP generation');
         
         // Create ZIP file locally as fallback
         const zip = new JSZip();

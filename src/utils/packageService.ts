@@ -30,10 +30,20 @@ export class PackageService {
   private static readonly API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://your-api-gateway-url.amazonaws.com/dev';
 
   /**
+   * Debug method to log the current API URL and test connection
+   */
+  static debugConnection(): void {
+    console.log('🔍 Debug: API_BASE_URL =', this.API_BASE_URL);
+    console.log('🔍 Debug: Environment variable =', import.meta.env.VITE_API_BASE_URL);
+  }
+
+  /**
    * Upload quickscan files to S3 and send email notification
    */
   static async uploadFiles(request: PackageUploadRequest): Promise<PackageUploadResponse> {
     try {
+      console.log('🚀 Attempting to upload files to:', `${this.API_BASE_URL}/upload-package`);
+      
       const response = await fetch(`${this.API_BASE_URL}/upload-package`, {
         method: 'POST',
         headers: {
@@ -42,7 +52,11 @@ export class PackageService {
         body: JSON.stringify(request),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
       const data = await response.json();
+      console.log('📡 Response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
@@ -50,7 +64,11 @@ export class PackageService {
 
       return data;
     } catch (error) {
-      console.error('Failed to upload files:', error);
+      console.error('❌ Failed to upload files:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
@@ -92,12 +110,40 @@ export class PackageService {
    */
   static async checkHealth(): Promise<boolean> {
     try {
+      console.log('🏥 Health check: Testing connection to:', `${this.API_BASE_URL}/upload-package`);
+      
+      // Try a simple POST request with minimal data
       const response = await fetch(`${this.API_BASE_URL}/upload-package`, {
-        method: 'OPTIONS',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          files: [],
+          summary: {
+            projectAddress: 'health-check',
+            buildingYear: '2024',
+            timestamp: new Date().toISOString(),
+            formData: {}
+          }
+        }),
       });
+
+      console.log('🏥 Health check response status:', response.status);
+      
+      if (response.status === 400) {
+        // 400 is expected for empty files, but means the endpoint is reachable
+        console.log('✅ Backend is reachable (400 expected for health check)');
+        return true;
+      }
+      
       return response.ok;
     } catch (error) {
-      console.warn('Backend service not available:', error);
+      console.warn('❌ Backend service not available:', error);
+      console.warn('❌ Health check error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return false;
     }
   }
